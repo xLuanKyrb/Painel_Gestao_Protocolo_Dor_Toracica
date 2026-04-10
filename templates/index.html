@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="pt-br" data-bs-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="refresh" content="60">
+    <title>Painel ECG - UPA</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+        /* Ajustes base para transições suaves no Dark Mode */
+        body { transition: background-color 0.3s ease, color 0.3s ease; }
+        
+        .small-label { font-size: 0.75rem; font-weight: bold; color: var(--bs-secondary); text-transform: uppercase; }
+        .table-text-small { font-size: 0.85rem; }
+        
+        /* Menu Lateral Fixo */
+        .sidebar-sticky {
+            position: -webkit-sticky;
+            position: sticky;
+            top: 1rem;
+            height: calc(100vh - 4rem);
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+
+        /* Estilização Profissional dos Cards */
+        .proc-card { 
+            transition: all 0.3s ease; 
+            border-radius: 6px; 
+            background-color: var(--bs-body-bg);
+            border: 1px solid var(--bs-border-color);
+        }
+        .proc-card:hover { 
+            transform: translateY(-2px); 
+            box-shadow: 0 .25rem .75rem rgba(0,0,0,.15); 
+        }
+        
+        .card-header-custom { padding: 0.15rem 0.4rem; font-size: 0.7rem; background-color: var(--bs-tertiary-bg); }
+        
+        /* Hierarquia Tipográfica */
+        .time-label { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.5px; }
+        .time-value { font-size: 1.1rem; font-weight: 900; line-height: 1; margin-top: 3px; }
+
+        /* Alerta de Atraso (Piscar Vermelho) */
+        @keyframes piscar-atraso {
+            0% { box-shadow: 0 0 0px rgba(220,53,69,0); border-color: var(--bs-border-color); }
+            50% { box-shadow: 0 0 8px rgba(220,53,69,0.8); border-color: #dc3545; background-color: rgba(220,53,69,0.05); }
+            100% { box-shadow: 0 0 0px rgba(220,53,69,0); border-color: var(--bs-border-color); }
+        }
+        .atrasado { 
+            animation: piscar-atraso 2s infinite !important; 
+            border-color: #dc3545 !important;
+        }
+        
+        /* Barra de Progresso */
+        .progress-micro { height: 6px; background-color: var(--bs-secondary-bg); border-radius: 3px; overflow: hidden; }
+        
+        /* Efeito de Rota Concluída (Colapso Visual) */
+        .rota-concluida {
+            opacity: 0.4;
+            filter: grayscale(80%);
+            transition: all 0.5s ease;
+        }
+        .rota-concluida:hover {
+            opacity: 0.8;
+            filter: grayscale(0%);
+        }
+    </style>
+</head>
+<body class="bg-light text-body">
+    
+    <header class="mb-3">
+        <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
+            <div class="container-fluid">
+                <a class="navbar-brand" href="/">
+                    <i class="bi bi-heart-pulse-fill text-danger me-2"></i>Painel Dor Torácica
+                </a>
+                <div class="d-flex align-items-center gap-2">
+                    <button class="btn btn-outline-light btn-sm" id="btnDarkMode" onclick="toggleDarkMode()" title="Alternar Modo Noturno">
+                        <i class="bi bi-moon-stars-fill"></i>
+                    </button>
+                    <a href="/historico" class="btn btn-warning btn-sm fw-bold">Histórico</a>
+                    <a href="/tela" class="btn btn-primary btn-sm fw-bold">Painel</a>
+                    <a href="/" class="btn btn-warning btn-sm fw-bold">Cadastro</a>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+<div class="container-fluid">
+    <div class="row g-3">
+        
+        <div class="col-md-3">
+            <div class="sidebar-sticky">
+                <div class="card shadow-sm mb-3 border-0">
+                    <div id="headerForm" class="card-header bg-primary text-white fw-bold d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-person-vcard me-2"></i>Paciente</span>
+                        <button type="button" class="btn btn-sm btn-light py-0 text-primary" onclick="limparFormulario()" title="Novo Paciente"><strong>+</strong></button>
+                    </div>
+                    <div class="card-body p-3 bg-body">
+                        <form action="/salvar" method="POST">
+                            <input type="hidden" name="id" id="f_id">
+                            <input type="hidden" name="cor_anterior" id="f_cor_ant">
+                            
+                            <div class="mb-2">
+                                <label class="small-label">Nome Completo</label>
+                                <input type="text" name="nome" id="f_nome" class="form-control form-control-sm fw-bold" required>
+                            </div>
+
+                            <div class="row g-2 mb-2">
+                                <div class="col-6">
+                                    <label class="small-label">Nascimento</label>
+                                    <input type="date" name="nascimento" id="f_nasc" class="form-control form-control-sm" required>
+                                </div>
+                                <div class="col-6">
+                                    <label class="small-label">Atendimento</label>
+                                    <input type="text" name="atendimento" id="f_atend" class="form-control form-control-sm" required>
+                                </div>
+                            </div>                    
+
+                            <div class="mb-2">
+                                <label class="small-label">Classificação (Rota)</label>
+                                <select name="cor_paciente" class="form-select form-select-sm" id="f_cor">
+                                    <option value="normal">Normal / Eletivo</option>
+                                    <option value="rota_amarelo">Rota Amarela</option>
+                                    <option value="rota_vermelho">Rota Vermelha</option>
+                                </select>
+                            </div>
+
+                            <div class="mb-2">
+                                <label class="small-label">Avaliação da 1º Rota</label>
+                                <textarea name="avaliacao" id="f_avaliacao" class="form-control form-control-sm" rows="3" placeholder="Avaliação do paciente"></textarea>
+                            </div>
+
+                            <hr class="my-2 border-secondary opacity-25">
+                            
+                            <label class="small-label text-primary mb-1">Solicitação do ECG</label>
+                            
+                            <div class="input-group input-group-sm mb-1">
+                                <span class="input-group-text text-primary fw-bold" style="width: 35px;">1º</span>
+                                <input type="time" name="presc_ecg_1" id="f_pecg1" class="form-control" title="Horário">
+                                <input type="text" name="prescritor_ecg_1" id="f_precg1" class="form-control w-50" placeholder="Solicitante">
+                            </div>
+
+                            <div class="input-group input-group-sm mb-1">
+                                <span class="input-group-text text-primary fw-bold" style="width: 35px;">2º</span>
+                                <input type="time" name="presc_ecg_2" id="f_pecg2" class="form-control" title="Horário">
+                                <input type="text" name="prescritor_ecg_2" id="f_precg2" class="form-control w-50" placeholder="Solicitante">
+                            </div>
+
+                            <div class="input-group input-group-sm mb-3">
+                                <span class="input-group-text text-primary fw-bold" style="width: 35px;">3º</span>
+                                <input type="time" name="presc_ecg_3" id="f_pecg3" class="form-control" title="Horário">
+                                <input type="text" name="prescritor_ecg_3" id="f_precg3" class="form-control w-50" placeholder="Solicitante">
+                            </div>
+
+                            <button type="submit" class="btn btn-primary w-100 btn-sm fw-bold shadow-sm">
+                                <i class="bi bi-save me-1"></i> Salvar Dados
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-9">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h5 class="mb-0 fw-bold"><i class="bi bi-tv me-2"></i>Monitoramento em Tempo Real</h5>
+                <div class="btn-group shadow-sm" role="group">
+                    <button type="button" class="btn btn-primary btn-sm fw-bold btn-filtro" data-filtro="todos">Visão Geral</button>
+                    <button type="button" class="btn btn-outline-primary btn-sm fw-bold btn-filtro" data-filtro="atrasados">⚠️ Atrasados</button>
+                    <button type="button" class="btn btn-outline-primary btn-sm fw-bold btn-filtro" data-filtro="urgencias">🚨 Urgências (V/A)</button>
+                </div>
+            </div>
+
+            <div class="card shadow-sm border-0 bg-body">
+                <div class="table-responsive" style="min-height: 70vh;">
+                    <table class="table table-bordered mb-0 align-middle">
+                        <thead class="table-dark text-center small">
+                            <tr>
+                                <th style="width: 22%">Paciente & Cadastro</th>
+                                <th style="width: 26%">1ª Rota</th>
+                                <th style="width: 26%">2ª Rota</th>
+                                <th style="width: 26%">3ª Rota</th>
+                            </tr>
+                        </thead>
+                        <tbody class="table-text-small" id="tabela-pacientes">
+                            {% for p in pacientes %}
+                            <tr class="paciente-row {{ p.cor_classe }}" data-rota-pac="{{ p.cor_paciente }}">
+                                
+                                <td class="ps-3 align-top border-end bg-body">
+                                    <div class="fw-bold text-uppercase" style="font-size: 1rem;">{{ p.nome }}</div>
+                                    
+                                    <div class="progress-micro mt-1 mb-2" title="Progresso do Protocolo">
+                                        <div class="progress-bar bg-primary barra-progresso" style="width: 0%; transition: width 1s ease-in-out;"></div>
+                                    </div>
+
+                                    <div class="text-secondary small mb-2">
+                                        <i class="bi bi-calendar"></i> {{p.nascimento}} 
+                                        | <i class="bi bi-hash"></i> {{p.atendimento}}
+                                        
+                                        <div class="small mt-1" style="font-size: 0.75rem;"><em>{{ p.avaliacao }}</em></div>
+                                        
+                                        {% if p.cor_paciente == 'rota_amarelo' %} 
+                                            <span class="badge bg-warning text-dark border border-dark mt-1 badge-classificacao">AMARELA</span>
+                                        {% elif p.cor_paciente == 'rota_vermelho' %} 
+                                            <span class="badge bg-danger border border-white mt-1 badge-classificacao">VERMELHA</span>
+                                        {% else %} 
+                                            <span class="badge bg-secondary text-light border mt-1 badge-classificacao">NORMAL</span>
+                                        {% endif %}
+                                    </div>
+
+                                    <hr class="my-2 border-secondary opacity-25">
+
+                                    <button type="button" class="btn btn-sm btn-success mb-2 w-100 fw-bold shadow-sm" onclick="abrirModalAcoes({{ p.id }}, '{{ p.nome }}')">
+                                        <i class="bi bi-play-circle me-1"></i> Lançar Ação
+                                    </button>
+
+                                    <div class="row g-1">
+                                        <div class="col-4">
+                                            <button class="btn btn-sm btn-primary w-100 text-truncate shadow-sm" title="Editar Dados"
+                                            onclick='carregar({{ p.id }}, "{{ p.nome }}", "{{ p.nascimento }}", "{{ p.atendimento }}", "{{ p.cor_paciente }}", "{{ p.avaliacao or "" }}", "{{ p.presc_ecg_1 or "" }}", "{{ p.presc_ecg_2 or "" }}", "{{ p.presc_ecg_3 or "" }}", "{{ p.prescritor_ecg_1 or "" }}", "{{ p.prescritor_ecg_2 or "" }}", "{{ p.prescritor_ecg_3 or "" }}")'>
+                                                <i class="bi bi-pencil-square"></i>
+                                            </button>
+                                        </div>
+                                        
+                                        <div class="col-4">
+                                            <a href="/imprimir_resumo/{{ p.id }}" target="_blank" class="btn btn-sm btn-outline-yellow w-100 text-truncate shadow-sm" title="Imprimir Prontuário">
+                                                <i class="bi bi-printer-fill"></i>
+                                            </a>
+                                        </div>
+
+                                        <div class="col-4">
+                                            <button type="button" class="btn btn-sm btn-outline-danger w-100 text-truncate shadow-sm" title="Registrar Saída/Desfecho" onclick='prepararAlta({{ p.id }}, "{{ p.nome }}")'>
+                                                <i class="bi bi-door-open-fill"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </td>
+                                
+                                <td class="p-2 align-top bg-body-tertiary celula-rota">
+                                    
+                                    <div class="proc-card mb-1">
+                                        <div class="card-header-custom text-secondary fw-bold d-flex justify-content-between align-items-center">
+                                            <span><i class="bi bi-heart-pulse-fill me-1"></i> ECG</span>
+                                            {% if p.vis_crm_1 %}<i class="bi bi-eye-fill text-secondary" title="Visto no CRM"></i>{% endif %}
+                                        </div>
+                                        <div class="d-flex text-center p-1">
+                                            <div class="col-6 border-end">
+                                                <div class="time-label text-secondary">Solicitado</div>
+                                                <div class="time-value">{{ p.presc_ecg_1 or '--:--' }}</div>
+                                            </div>
+                                            <div class="col-6">
+                                                {% if p.exec_ecg_1 %}
+                                                    <div class="time-label text-success">Realizado</div>
+                                                    <div class="time-value text-success realizado-time">{{ p.exec_ecg_1 }}</div>
+                                                {% else %}
+                                                    <div class="time-label text-danger">Alvo Previsto</div>
+                                                    <div class="time-value text-danger alvo-time">{{ p.alvo_1.ecg or '--:--' }}</div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        {% if p.laudo_ecg_1 %}
+                                        <div class="card-header-custom bg-warning bg-opacity-25 text-center border-top">
+                                            Laudo: <strong>{{ p.laudo_ecg_1 }}</strong>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+
+                                    <div class="proc-card border-danger mb-1">
+                                        <div class="card-header-custom text-danger fw-bold">
+                                            <i class="bi bi-droplet-fill me-1"></i> TROPONINA
+                                        </div>
+                                        <div class="d-flex text-center p-1">
+                                            <div class="col-6 border-end">
+                                                <div class="time-label text-secondary">Alvo Protocolo</div>
+                                                <div class="time-value text-danger alvo-time">{{ p.alvo_1.tropo or '--:--' }}</div>
+                                            </div>
+                                            <div class="col-6">
+                                                <div class="time-label {% if p.exec_trop_1 %}text-success{% else %}text-secondary{% endif %}">Realizado</div>
+                                                <div class="time-value {% if p.exec_trop_1 %}text-success{% else %}text-secondary opacity-50{% endif %} realizado-time">{{ p.exec_trop_1 or '--:--' }}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="proc-card border-success mb-1">
+                                        <div class="card-header-custom text-success fw-bold">
+                                            <i class="bi bi-capsule me-1"></i> MEDICAÇÃO
+                                        </div>
+                                        <div class="d-flex text-center p-1">
+                                            <div class="col-6 border-end">
+                                                <div class="time-label text-secondary">Alvo Previsto</div>
+                                                <div class="time-value text-danger alvo-time">{{ p.alvo_1.med or '--:--' }}</div>
+                                            </div>
+                                            <div class="col-6">
+                                                <div class="time-label {% if p.exec_med_1 %}text-success{% else %}text-secondary{% endif %}">Realizado</div>
+                                                <div class="time-value {% if p.exec_med_1 %}text-success{% else %}text-secondary opacity-50{% endif %} realizado-time">{{ p.exec_med_1 or '--:--' }}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="proc-card border-info mb-1">
+                                        <div class="card-header-custom text-info fw-bold">
+                                            <i class="bi bi-file-medical me-1"></i> RAIO-X
+                                        </div>
+                                        <div class="d-flex text-center p-1">
+                                            <div class="col-6 border-end">
+                                                <div class="time-label text-secondary">Alvo Previsto</div>
+                                                <div class="time-value text-danger alvo-time">{{ p.alvo_1.rx or '--:--' }}</div>
+                                            </div>
+                                            <div class="col-6">
+                                                <div class="time-label {% if p.exec_rx_1 %}text-success{% else %}text-secondary{% endif %}">Realizado</div>
+                                                <div class="time-value {% if p.exec_rx_1 %}text-success{% else %}text-secondary opacity-50{% endif %} realizado-time">{{ p.exec_rx_1 or '--:--' }}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="proc-card border-primary">
+                                        <div class="card-header-custom text-primary fw-bold">
+                                            <i class="bi bi-clipboard2-pulse me-1"></i> AVALIAÇÃO
+                                        </div>
+                                        <div class="d-flex text-center p-1">
+                                            <div class="col-6 border-end">
+                                                <div class="time-label text-secondary">Alvo Previsto</div>
+                                                <div class="time-value text-danger alvo-time">{{ p.alvo_1.aval or '--:--' }}</div>
+                                            </div>
+                                            <div class="col-6">
+                                                <div class="time-label {% if p.avalia_rota_1 %}text-primary{% else %}text-secondary{% endif %}">Realizado</div>
+                                                <div class="time-value {% if p.avalia_rota_1 %}text-primary{% else %}text-secondary opacity-50{% endif %} realizado-time">{{ p.avalia_rota_1 or '--:--' }}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                                
+                                <td class="p-2 align-top border-start bg-body celula-rota">
+                                    
+                                    {% if p.prox_ecg_1 %}
+                                    <div class="alert alert-info py-1 px-2 mb-1 text-center shadow-sm" style="font-size: 0.7rem; border: 1px dashed #0dcaf0;">
+                                        <i class="bi bi-clock-history me-1"></i> Próx. Sugerido: <strong>{{ p.prox_ecg_1 }}</strong>
+                                    </div>
+                                    {% endif %}
+
+                                    <div class="proc-card mb-1">
+                                        <div class="card-header-custom text-secondary fw-bold d-flex justify-content-between align-items-center">
+                                            <span><i class="bi bi-heart-pulse-fill me-1"></i> ECG</span>
+                                            {% if p.vis_crm_2 %}<i class="bi bi-eye-fill text-secondary" title="Visto no CRM"></i>{% endif %}
+                                        </div>
+                                        <div class="d-flex text-center p-1">
+                                            <div class="col-6 border-end">
+                                                <div class="time-label text-secondary">Solicitado</div>
+                                                <div class="time-value">{{ p.presc_ecg_2 or '--:--' }}</div>
+                                            </div>
+                                            <div class="col-6">
+                                                {% if p.exec_ecg_2 %}
+                                                    <div class="time-label text-success">Realizado</div>
+                                                    <div class="time-value text-success realizado-time">{{ p.exec_ecg_2 }}</div>
+                                                {% else %}
+                                                    <div class="time-label text-danger">Alvo Previsto</div>
+                                                    <div class="time-value text-danger alvo-time">{{ p.alvo_2.ecg or '--:--' }}</div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        {% if p.laudo_ecg_2 %}
+                                        <div class="card-header-custom bg-warning bg-opacity-25 text-center border-top">
+                                            Laudo: <strong>{{ p.laudo_ecg_2 }}</strong>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+
+                                    <div class="proc-card border-danger mb-1">
+                                        <div class="card-header-custom text-danger fw-bold">
+                                            <i class="bi bi-droplet-fill me-1"></i> TROPONINA
+                                        </div>
+                                        <div class="d-flex text-center p-1">
+                                            <div class="col-6 border-end">
+                                                <div class="time-label text-secondary">Alvo Protocolo</div>
+                                                <div class="time-value text-danger alvo-time">{{ p.alvo_2.tropo or '--:--' }}</div>
+                                            </div>
+                                            <div class="col-6">
+                                                <div class="time-label {% if p.exec_trop_2 %}text-success{% else %}text-secondary{% endif %}">Realizado</div>
+                                                <div class="time-value {% if p.exec_trop_2 %}text-success{% else %}text-secondary opacity-50{% endif %} realizado-time">{{ p.exec_trop_2 or '--:--' }}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="proc-card border-success mb-1">
+                                        <div class="card-header-custom text-success fw-bold">
+                                            <i class="bi bi-capsule me-1"></i> MEDICAÇÃO
+                                        </div>
+                                        <div class="d-flex text-center p-1">
+                                            <div class="col-6 border-end">
+                                                <div class="time-label text-secondary">Alvo Previsto</div>
+                                                <div class="time-value text-danger alvo-time">{{ p.alvo_2.med or '--:--' }}</div>
+                                            </div>
+                                            <div class="col-6">
+                                                <div class="time-label {% if p.exec_med_2 %}text-success{% else %}text-secondary{% endif %}">Realizado</div>
+                                                <div class="time-value {% if p.exec_med_2 %}text-success{% else %}text-secondary opacity-50{% endif %} realizado-time">{{ p.exec_med_2 or '--:--' }}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="proc-card border-info mb-1">
+                                        <div class="card-header-custom text-info fw-bold">
+                                            <i class="bi bi-file-medical me-1"></i> RAIO-X
+                                        </div>
+                                        <div class="d-flex text-center p-1">
+                                            <div class="col-6 border-end">
+                                                <div class="time-label text-secondary">Alvo Previsto</div>
+                                                <div class="time-value text-danger alvo-time">{{ p.alvo_2.rx or '--:--' }}</div>
+                                            </div>
+                                            <div class="col-6">
+                                                <div class="time-label {% if p.exec_rx_2 %}text-success{% else %}text-secondary{% endif %}">Realizado</div>
+                                                <div class="time-value {% if p.exec_rx_2 %}text-success{% else %}text-secondary opacity-50{% endif %} realizado-time">{{ p.exec_rx_2 or '--:--' }}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="proc-card border-primary">
+                                        <div class="card-header-custom text-primary fw-bold">
+                                            <i class="bi bi-clipboard2-pulse me-1"></i> AVALIAÇÃO
+                                        </div>
+                                        <div class="d-flex text-center p-1">
+                                            <div class="col-6 border-end">
+                                                <div class="time-label text-secondary">Alvo Previsto</div>
+                                                <div class="time-value text-danger alvo-time">{{ p.alvo_2.aval or '--:--' }}</div>
+                                            </div>
+                                            <div class="col-6">
+                                                <div class="time-label {% if p.avalia_rota_2 %}text-primary{% else %}text-secondary{% endif %}">Realizado</div>
+                                                <div class="time-value {% if p.avalia_rota_2 %}text-primary{% else %}text-secondary opacity-50{% endif %} realizado-time">{{ p.avalia_rota_2 or '--:--' }}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+
+                                <td class="p-2 align-top border-start bg-body-tertiary celula-rota">
+                                    
+                                    {% if p.prox_ecg_2 %}
+                                    <div class="alert alert-info py-1 px-2 mb-1 text-center shadow-sm" style="font-size: 0.7rem; border: 1px dashed #0dcaf0;">
+                                        <i class="bi bi-clock-history me-1"></i> Próx. Sugerido: <strong>{{ p.prox_ecg_2 }}</strong>
+                                    </div>
+                                    {% endif %}
+
+                                    <div class="proc-card mb-1">
+                                        <div class="card-header-custom text-secondary fw-bold d-flex justify-content-between align-items-center">
+                                            <span><i class="bi bi-heart-pulse-fill me-1"></i> ECG</span>
+                                            {% if p.vis_crm_3 %}<i class="bi bi-eye-fill text-secondary" title="Visto no CRM"></i>{% endif %}
+                                        </div>
+                                        <div class="d-flex text-center p-1">
+                                            <div class="col-6 border-end">
+                                                <div class="time-label text-secondary">Solicitado</div>
+                                                <div class="time-value">{{ p.presc_ecg_3 or '--:--' }}</div>
+                                            </div>
+                                            <div class="col-6">
+                                                {% if p.exec_ecg_3 %}
+                                                    <div class="time-label text-success">Realizado</div>
+                                                    <div class="time-value text-success realizado-time">{{ p.exec_ecg_3 }}</div>
+                                                {% else %}
+                                                    <div class="time-label text-danger">Alvo Previsto</div>
+                                                    <div class="time-value text-danger alvo-time">{{ p.alvo_3.ecg or '--:--' }}</div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        {% if p.laudo_ecg_3 %}
+                                        <div class="card-header-custom bg-warning bg-opacity-25 text-center border-top">
+                                            Laudo: <strong>{{ p.laudo_ecg_3 }}</strong>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+
+                                    <div class="proc-card border-danger mb-1">
+                                        <div class="card-header-custom text-danger fw-bold">
+                                            <i class="bi bi-droplet-fill me-1"></i> TROPONINA
+                                        </div>
+                                        <div class="d-flex text-center p-1">
+                                            <div class="col-6 border-end">
+                                                <div class="time-label text-secondary">Alvo Protocolo</div>
+                                                <div class="time-value text-danger alvo-time">{{ p.alvo_3.tropo or '--:--' }}</div>
+                                            </div>
+                                            <div class="col-6">
+                                                <div class="time-label {% if p.exec_trop_3 %}text-success{% else %}text-secondary{% endif %}">Realizado</div>
+                                                <div class="time-value {% if p.exec_trop_3 %}text-success{% else %}text-secondary opacity-50{% endif %} realizado-time">{{ p.exec_trop_3 or '--:--' }}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="proc-card border-success mb-1">
+                                        <div class="card-header-custom text-success fw-bold">
+                                            <i class="bi bi-capsule me-1"></i> MEDICAÇÃO
+                                        </div>
+                                        <div class="d-flex text-center p-1">
+                                            <div class="col-6 border-end">
+                                                <div class="time-label text-secondary">Alvo Previsto</div>
+                                                <div class="time-value text-danger alvo-time">{{ p.alvo_3.med or '--:--' }}</div>
+                                            </div>
+                                            <div class="col-6">
+                                                <div class="time-label {% if p.exec_med_3 %}text-success{% else %}text-secondary{% endif %}">Realizado</div>
+                                                <div class="time-value {% if p.exec_med_3 %}text-success{% else %}text-secondary opacity-50{% endif %} realizado-time">{{ p.exec_med_3 or '--:--' }}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="proc-card border-info mb-1">
+                                        <div class="card-header-custom text-info fw-bold">
+                                            <i class="bi bi-file-medical me-1"></i> RAIO-X
+                                        </div>
+                                        <div class="d-flex text-center p-1">
+                                            <div class="col-6 border-end">
+                                                <div class="time-label text-secondary">Alvo Previsto</div>
+                                                <div class="time-value text-danger alvo-time">{{ p.alvo_3.rx or '--:--' }}</div>
+                                            </div>
+                                            <div class="col-6">
+                                                <div class="time-label {% if p.exec_rx_3 %}text-success{% else %}text-secondary{% endif %}">Realizado</div>
+                                                <div class="time-value {% if p.exec_rx_3 %}text-success{% else %}text-secondary opacity-50{% endif %} realizado-time">{{ p.exec_rx_3 or '--:--' }}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="proc-card border-primary">
+                                        <div class="card-header-custom text-primary fw-bold">
+                                            <i class="bi bi-clipboard2-pulse me-1"></i> AVALIAÇÃO
+                                        </div>
+                                        <div class="d-flex text-center p-1">
+                                            <div class="col-6 border-end">
+                                                <div class="time-label text-secondary">Alvo Previsto</div>
+                                                <div class="time-value text-danger alvo-time">{{ p.alvo_3.aval or '--:--' }}</div>
+                                            </div>
+                                            <div class="col-6">
+                                                <div class="time-label {% if p.avalia_rota_3 %}text-primary{% else %}text-secondary{% endif %}">Realizado</div>
+                                                <div class="time-value {% if p.avalia_rota_3 %}text-primary{% else %}text-secondary opacity-50{% endif %} realizado-time">{{ p.avalia_rota_3 or '--:--' }}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalAlta" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title"><i class="bi bi-door-open-fill me-2"></i> Registrar Saída/Desfecho</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body bg-body">
+        <form action="/registrar_saida" method="POST">
+            <input type="hidden" name="id_paciente" id="saida_id_paciente">
+            <div class="mb-3 text-center">
+                <span class="text-secondary small text-uppercase">Paciente</span>
+                <h5 id="saida_nome_paciente" class="fw-bold"></h5>
+            </div>
+            <div class="mb-3">
+                <label class="form-label fw-bold small text-primary">Tipo de Saída</label>
+                <select name="tipo_saida" id="select_tipo_saida" class="form-select border-primary" onchange="verificarTransferencia(this)" required>
+                    <option value="" selected disabled>Selecione o motivo...</option>
+                    <option value="alta">Alta Médica</option>
+                    <option value="ecg_normal">ECG - Normal (Ritmo Sinusal)</option>
+                    <option value="evasao">Evasão</option>
+                    <option value="transferencia">Transferência</option>
+                    <option value="obito">Óbito</option>
+                </select>
+            </div>
+            <div id="campos_transferencia" class="border p-3 rounded bg-body-secondary shadow-sm mb-3" style="display: none;">
+                <label class="small-label text-danger mb-2"><i class="bi bi-ambulance"></i> Dados da Transferência</label>
+                <div class="mb-2">
+                    <label class="form-label small">Local de Destino</label>
+                    <input type="text" name="destino_transferencia" class="form-control form-control-sm" placeholder="Ex: Hospital Universitário">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small">Horário de Saída</label>
+                    <input type="time" name="hora_transferencia" class="form-control form-control-sm">
+                </div>
+            </div>
+            <div class="d-grid">
+                <button type="submit" class="btn btn-danger fw-bold">Confirmar Saída</button>
+            </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="modalAcoes" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content border-0 shadow-lg">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title"><i class="bi bi-play-circle me-2"></i>Lançar Execução / Laudo</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body bg-body">
+        <form action="/marcar_execucao" method="POST" id="formAcoes">
+            <input type="hidden" name="id_rota" id="acao_id_paciente">
+            <div class="text-center mb-4">
+                <span class="text-secondary small text-uppercase">Paciente Selecionado</span>
+                <h5 id="acao_nome_paciente" class="fw-bold mb-0"></h5>
+            </div>
+            <div class="card shadow-sm border-0 mb-3 bg-body-tertiary">
+                <div class="card-body p-3">
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold text-success">O que foi realizado?</label>
+                        <select name="coluna_selecionada" class="form-select border-success" required>
+                            <option value="" selected disabled>Selecione a ação...</option>
+                            <optgroup label="--- 1ª ROTA ---">
+                                <option value="exec_ecg_1">📈 Realização do 1º ECG</option>
+                                <option value="laudo_ecg_1">📋 Laudo do 1º ECG</option>
+                                <option value="vis_crm_1">👁️ Vis. CRM (1º ECG)</option>
+                                <option value="exec_trop_1">🩸 Coleta 1ª Troponina</option>
+                                <option value="exec_med_1">💊 Adm. Medicação (1ª Rota)</option>
+                                <option value="exec_rx_1">🩻 Realização Raio-X (1ª Rota)</option>
+                                <option value="avalia_rota_1">🩺 Avaliação Médica (1ª Rota)</option>
+                            </optgroup>
+                            <optgroup label="--- 2ª ROTA ---">
+                                <option value="exec_ecg_2">📈 Realização do 2º ECG</option>
+                                <option value="laudo_ecg_2">📋 Laudo do 2º ECG</option>
+                                <option value="vis_crm_2">👁️ Vis. CRM (2º ECG)</option>
+                                <option value="exec_trop_2">🩸 Coleta 2ª Troponina</option>
+                                <option value="exec_med_2">💊 Adm. Medicação (2ª Rota)</option>
+                                <option value="exec_rx_2">🩻 Realização Raio-X (2ª Rota)</option>
+                                <option value="avalia_rota_2">🩺 Avaliação Médica (2ª Rota)</option>
+                            </optgroup>
+                            <optgroup label="--- 3ª ROTA ---">
+                                <option value="exec_ecg_3">📈 Realização do 3º ECG</option>
+                                <option value="laudo_ecg_3">📋 Laudo do 3º ECG</option>
+                                <option value="vis_crm_3">👁️ Vis. CRM (3º ECG)</option>
+                                <option value="exec_trop_3">🩸 Coleta 3ª Troponina</option>
+                                <option value="exec_med_3">💊 Adm. Medicação (3ª Rota)</option>
+                                <option value="exec_rx_3">🩻 Realização Raio-X (3ª Rota)</option>
+                                <option value="avalia_rota_3">🩺 Avaliação Médica (3ª Rota)</option>
+                            </optgroup>
+                        </select>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small fw-bold text-secondary">Profissional (Nome / CRM / COREN)</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
+                            <input type="text" name="profissional" class="form-control" required placeholder="Quem executou/laudou?">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="d-grid">
+                <button type="submit" class="btn btn-success fw-bold shadow-sm p-2">
+                    <i class="bi bi-check2-circle me-2"></i>Confirmar Registro
+                </button>
+            </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+// --- CONTROLE DO MODO NOTURNO ---
+function initTheme() {
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-bs-theme', savedTheme);
+    atualizarIconeTema(savedTheme);
+}
+
+function toggleDarkMode() {
+    const currentTheme = document.documentElement.getAttribute('data-bs-theme');
+    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-bs-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+    atualizarIconeTema(newTheme);
+}
+
+function atualizarIconeTema(theme) {
+    const btn = document.getElementById('btnDarkMode');
+    if(theme === 'dark') {
+        btn.innerHTML = '<i class="bi bi-sun-fill text-warning"></i>';
+    } else {
+        btn.innerHTML = '<i class="bi bi-moon-stars-fill"></i>';
+    }
+}
+
+// --- FILTROS RÁPIDOS DA TABELA ---
+document.querySelectorAll('.btn-filtro').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+        // Ajusta cores dos botões
+        document.querySelectorAll('.btn-filtro').forEach(b => {
+            b.classList.remove('btn-primary');
+            b.classList.add('btn-outline-primary');
+        });
+        e.target.classList.remove('btn-outline-primary');
+        e.target.classList.add('btn-primary');
+
+        const filtro = e.target.getAttribute('data-filtro');
+        
+        document.querySelectorAll('tr.paciente-row').forEach(tr => {
+            if (filtro === 'todos') {
+                tr.style.display = '';
+            } else if (filtro === 'atrasados') {
+                const temAtraso = tr.querySelector('.atrasado') !== null;
+                tr.style.display = temAtraso ? '' : 'none';
+            } else if (filtro === 'urgencias') {
+                const rota = tr.getAttribute('data-rota-pac');
+                tr.style.display = (rota === 'rota_vermelho' || rota === 'rota_amarelo') ? '' : 'none';
+            }
+        });
+    });
+});
+
+// --- FUNÇÕES DOS FORMULÁRIOS (Existentes) ---
+function carregar(id, nome, nasc, atend, cor, avaliacao, pe1, pe2, pe3, prec1, prec2, prec3) {
+    document.getElementById('f_id').value = id;
+    document.getElementById('f_nome').value = nome;
+    document.getElementById('f_nasc').value = nasc;
+    document.getElementById('f_atend').value = atend;
+    document.getElementById('f_cor').value = cor;
+    document.getElementById('f_cor_ant').value = cor; 
+    document.getElementById('f_avaliacao').value = avaliacao;
+    document.getElementById('f_pecg1').value = pe1; document.getElementById('f_pecg2').value = pe2; document.getElementById('f_pecg3').value = pe3;
+    document.getElementById('f_precg1').value = prec1; document.getElementById('f_precg2').value = prec2; document.getElementById('f_precg3').value = prec3;
+    
+    let header = document.getElementById('headerForm');
+    header.innerHTML = '<span><i class="bi bi-pencil-fill me-2"></i>Editando: ' + nome.split(' ')[0] + '</span> <button type="button" class="btn btn-sm btn-light py-0 text-dark" onclick="limparFormulario()">+</button>';
+    header.className = "card-header bg-warning text-dark fw-bold d-flex justify-content-between align-items-center";
+    document.querySelector('.sidebar-sticky').scrollTop = 0;
+}
+
+function limparFormulario() {
+    document.querySelector('form[action="/salvar"]').reset();
+    document.getElementById('f_id').value = "";
+    document.getElementById('f_cor_ant').value = ""; 
+    let header = document.getElementById('headerForm');
+    header.innerHTML = '<span><i class="bi bi-person-vcard me-2"></i>Novo Paciente</span> <button type="button" class="btn btn-sm btn-light py-0 text-primary" onclick="limparFormulario()"><strong>+</strong></button>';
+    header.className = "card-header bg-primary text-white fw-bold d-flex justify-content-between align-items-center";
+}
+
+function prepararAlta(id, nome) {
+    document.getElementById('saida_id_paciente').value = id;
+    document.getElementById('saida_nome_paciente').innerText = nome;
+    document.getElementById('select_tipo_saida').value = "";
+    document.getElementById('campos_transferencia').style.display = 'none';
+    new bootstrap.Modal(document.getElementById('modalAlta')).show();
+}
+
+function verificarTransferencia(select) {
+    let divTransf = document.getElementById('campos_transferencia');
+    if(select.value === 'transferencia') {
+        divTransf.style.display = 'block';
+        divTransf.querySelector('input[name="destino_transferencia"]').required = true;
+        divTransf.querySelector('input[name="hora_transferencia"]').required = true;
+    } else {
+        divTransf.style.display = 'none';
+        divTransf.querySelector('input[name="destino_transferencia"]').required = false;
+        divTransf.querySelector('input[name="hora_transferencia"]').required = false;
+        divTransf.querySelector('input[name="destino_transferencia"]').value = "";
+        divTransf.querySelector('input[name="hora_transferencia"]').value = "";
+    }
+}
+
+function abrirModalAcoes(id, nome) {
+    document.getElementById('acao_id_paciente').value = id;
+    document.getElementById('acao_nome_paciente').innerText = nome;
+    document.getElementById('formAcoes').reset();
+    new bootstrap.Modal(document.getElementById('modalAcoes')).show();
+}
+
+// --- ORDENAÇÃO DINÂMICA (TRIAGE SCORE) ---
+function reordenarPacientes() {
+    const tbody = document.getElementById('tabela-pacientes');
+    const linhas = Array.from(tbody.querySelectorAll('tr.paciente-row'));
+
+    linhas.sort((a, b) => {
+        let scoreA = 0;
+        let scoreB = 0;
+
+        // 1. Tem Atraso (Ganham 1000 pontos e sobem pro topo)
+        if (a.querySelector('.atrasado')) scoreA += 1000;
+        if (b.querySelector('.atrasado')) scoreB += 1000;
+
+        // 2. Classificação de Risco
+        const rotaA = a.getAttribute('data-rota-pac');
+        const rotaB = b.getAttribute('data-rota-pac');
+        if (rotaA === 'rota_vermelho') scoreA += 500;
+        if (rotaB === 'rota_vermelho') scoreB += 500;
+        if (rotaA === 'rota_amarelo') scoreA += 100;
+        if (rotaB === 'rota_amarelo') scoreB += 100;
+        return scoreB - scoreA;
+    });
+
+    linhas.forEach(linha => tbody.appendChild(linha));
+}
+
+// --- AUDITOR DE UX E CÁLCULOS VISUAIS ---
+function atualizarUXPainel() {
+    const agora = new Date();
+    const tempoTotalAtual = (agora.getHours() * 60) + agora.getMinutes();
+
+    document.querySelectorAll('.paciente-row').forEach(tr => {
+        let totalCardsPaciente = 0;
+        let concluidosPaciente = 0;
+
+        tr.querySelectorAll('.celula-rota').forEach(td => {
+            let cardsNestaRota = 0;
+            let concluidosNestaRota = 0;
+            let temFalsoAlerta = false;
+
+            td.querySelectorAll('.proc-card').forEach(card => {
+                totalCardsPaciente++;
+                cardsNestaRota++;
+                
+                const spanRealizado = card.querySelector('.realizado-time');
+                const spanAlvo = card.querySelector('.alvo-time');
+                
+                const textRealizado = spanRealizado ? spanRealizado.innerText.trim() : '--:--';
+                const textAlvo = spanAlvo ? spanAlvo.innerText.trim() : '--:--';
+                
+                if (textAlvo === '--:--' && textRealizado === '--:--') {
+                    card.style.opacity = '0.35';
+                    temFalsoAlerta = true;
+                } else {
+                    card.style.opacity = '1';
+                }
+
+                if (textRealizado !== '--:--' && textRealizado !== '') {
+                    concluidosPaciente++;
+                    concluidosNestaRota++;
+                    card.classList.remove('atrasado'); 
+                } 
+                else if (textAlvo !== '--:--') {
+                    const partes = textAlvo.split(':');
+                    if(partes.length === 2) {
+                        const tempoAlvo = parseInt(partes[0], 10) * 60 + parseInt(partes[1], 10);
+                        let atrasado = false;
+                        if (tempoTotalAtual < 300 && tempoAlvo > 1000) {
+                            atrasado = true; // Virada de meia-noite
+                        } else if (tempoTotalAtual > tempoAlvo && (tempoTotalAtual - tempoAlvo) < 1000) {
+                            atrasado = true; // Atraso normal
+                        }
+
+                        if (atrasado) card.classList.add('atrasado'); 
+                        else card.classList.remove('atrasado');
+                    }
+                }
+            });
+
+            if(cardsNestaRota > 0 && cardsNestaRota === concluidosNestaRota && !temFalsoAlerta) {
+                td.classList.add('rota-concluida');
+            } else {
+                td.classList.remove('rota-concluida');
+            }
+        });
+
+        // BARRA DE PROGRESSO GLOBAL DO PACIENTE
+        const progressBar = tr.querySelector('.barra-progresso');
+        if (progressBar && totalCardsPaciente > 0) {
+            const porcentagem = Math.round((concluidosPaciente / totalCardsPaciente) * 100);
+            progressBar.style.width = porcentagem + '%';
+            
+            if (tr.querySelector('.atrasado')) {
+                progressBar.className = 'progress-bar bg-danger barra-progresso';
+            } else if (porcentagem === 100) {
+                progressBar.className = 'progress-bar bg-success barra-progresso';
+            } else {
+                progressBar.className = 'progress-bar bg-primary barra-progresso';
+            }
+        }
+    });
+
+    reordenarPacientes();
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    initTheme(); // Carrega o tema salvo
+    atualizarUXPainel(); // Faz a mágica visual
+    setInterval(atualizarUXPainel, 60000); // Roda a cada 10 segundos
+});
+</script>
+</body>
+</html>

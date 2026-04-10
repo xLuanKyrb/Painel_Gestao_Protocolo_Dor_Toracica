@@ -1,0 +1,15 @@
+# Banco de Dados
+upa_eletros.db
+
+# Pasta de Backups Automáticos
+backups_diarios/
+
+# Arquivos de Cache e Sistema do Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ambientes Virtuais (Caso você crie um futuramente)
+venv/
+env/

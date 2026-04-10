@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Prontuário - {{ p.nome }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        /* Estilos específicos para a Folha A4 e Impressão */
+        body { background-color: #525659; } /* Fundo escuro fora do papel */
+        .a4-page {
+            background-color: white;
+            width: 21cm;
+            min-height: 29.7cm;
+            margin: 20px auto;
+            padding: 2cm;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+            font-family: 'Arial', sans-serif;
+            color: black;
+        }
+        
+        .cabecalho-hospital { text-align: center; border-bottom: 2px solid black; padding-bottom: 10px; margin-bottom: 20px; }
+        .titulo-doc { font-size: 1.2rem; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;}
+        
+        .section-title { background-color: #f0f0f0; padding: 5px; font-weight: bold; border: 1px solid black; margin-top: 20px; font-size: 0.9rem;}
+        
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-bottom: 10px;}
+        th, td { border: 1px solid black; padding: 4px 8px; }
+        th { background-color: #f8f9fa; }
+
+        .assinaturas { margin-top: 50px; display: flex; justify-content: space-around; text-align: center; }
+        .linha-assinatura { border-top: 1px solid black; width: 8cm; margin-top: 40px; padding-top: 5px; font-size: 0.8rem; }
+
+        /* Regras vitais para quando apertar CTRL+P */
+        @media print {
+            body { background-color: white; }
+            .a4-page { margin: 0; padding: 0; box-shadow: none; width: 100%; }
+            .no-print { display: none !important; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="text-center mt-3 mb-3 no-print">
+        <button onclick="window.print()" class="btn btn-primary btn-lg fw-bold">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-printer-fill me-2" viewBox="0 0 16 16">
+                <path d="M5 1a2 2 0 0 0-2 2v1h10V3a2 2 0 0 0-2-2H5zm6 8H5a1 1 0 0 0-1 1v3a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-3a1 1 0 0 0-1-1z"/>
+                <path d="M0 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-1v-2a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v2H2a2 2 0 0 1-2-2V7zm2.5 1a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1z"/>
+            </svg>
+            Imprimir ou Salvar PDF
+        </button>
+        <a href="javascript:history.back()" class="btn btn-secondary btn-lg fw-bold ms-2">Voltar</a>
+    </div>
+
+    <div class="a4-page">
+        <div class="cabecalho-hospital">
+            <h2>UPA SANTA PAULA</h2>
+            <div class="titulo-doc">Ficha de Acompanhamento - Protocolo de Dor Torácica</div>
+        </div>
+
+        <div class="section-title">IDENTIFICAÇÃO DO PACIENTE</div>
+        <table>
+            <tr>
+                <td colspan="2"><strong>Nome:</strong> {{ p.nome }}</td>
+                <td><strong>Nascimento:</strong> {{ p.nascimento }}</td>
+            </tr>
+            <tr>
+                <td><strong>Atendimento:</strong> {{ p.atendimento }}</td>
+                <td><strong>Classificação:</strong> {{ p.cor_paciente | replace('rota_', '') | upper }}</td>
+                <td><strong>Data Impressão:</strong> {{ data_impressao }}</td>
+            </tr>
+            <tr>
+                <td colspan="3"><strong>Avaliação Inicial:</strong> {{ p.avaliacao or 'Não informada' }}</td>
+            </tr>
+        </table>
+
+        {% if p.ativo == 0 and p.destino_trasferencia %}
+        <div class="section-title" style="background-color: #fff3cd;">DESFECHO DO ATENDIMENTO</div>
+        <table>
+            <tr>
+                <td><strong>Motivo / Destino:</strong> {{ p.destino_trasferencia }}</td>
+                <td><strong>Hora da Saída:</strong> {{ p.hora_trasferencia or '--:--' }}</td>
+            </tr>
+        </table>
+        {% endif %}
+
+        {% if p.presc_ecg_1 %}
+        <div class="section-title">1ª ROTA (Marco Zero: {{ p.presc_ecg_1 }})</div>
+        <table>
+            <tr>
+                <th style="width: 25%;">Procedimento</th>
+                <th style="width: 25%;">Alvo Protocolo</th>
+                <th style="width: 25%;">Realizado</th>
+                <th style="width: 25%;">Profissional</th>
+            </tr>
+            <tr>
+                <td>ECG (Solicitação)</td>
+                <td>--:--</td>
+                <td>{{ p.presc_ecg_1 or '--:--' }}</td>
+                <td>{{ p.prescritor_ecg_1 or '--' }}</td>
+            </tr>
+            <tr>
+                <td>ECG (Execução)</td>
+                <td>{{ p.alvo_1.ecg or '--:--' }}</td>
+                <td>{{ p.exec_ecg_1 or '--:--' }}</td>
+                <td>{{ p.executor_ecg_1 or '--' }}</td>
+            </tr>
+            <tr>
+                <td>Laudo ECG</td>
+                <td colspan="2"><strong>{{ p.laudo_ecg_1 or 'Aguardando Laudo' }}</strong></td>
+                <td>{{ p.medico_ecg_1 or '--' }}</td>
+            </tr>
+            <tr>
+                <td>Troponina</td>
+                <td>{{ p.alvo_1.tropo or '--:--' }}</td>
+                <td>{{ p.exec_trop_1 or '--:--' }}</td>
+                <td>{{ p.executor_trop_1 or '--' }}</td>
+            </tr>
+            <tr>
+                <td>Medicação</td>
+                <td>{{ p.alvo_1.med or '--:--' }}</td>
+                <td>{{ p.exec_med_1 or '--:--' }}</td>
+                <td>{{ p.executor_med_1 or '--' }}</td>
+            </tr>
+            <tr>
+                <td>Raio-X</td>
+                <td>{{ p.alvo_1.rx or '--:--' }}</td>
+                <td>{{ p.exec_rx_1 or '--:--' }}</td>
+                <td>{{ p.executor_rx_1 or '--' }}</td>
+            </tr>
+        </table>
+        {% endif %}
+
+        {% if p.presc_ecg_2 %}
+        <div class="section-title">2ª ROTA (Marco Zero: {{ p.presc_ecg_2 }})</div>
+        <table>
+            <tr>
+                <th style="width: 25%;">Procedimento</th>
+                <th style="width: 25%;">Alvo Protocolo</th>
+                <th style="width: 25%;">Realizado</th>
+                <th style="width: 25%;">Profissional</th>
+            </tr>
+            <tr>
+                <td>ECG (Execução)</td>
+                <td>{{ p.alvo_2.ecg or '--:--' }}</td>
+                <td>{{ p.exec_ecg_2 or '--:--' }}</td>
+                <td>{{ p.executor_ecg_2 or '--' }}</td>
+            </tr>
+            <tr>
+                <td>Laudo ECG</td>
+                <td colspan="2"><strong>{{ p.laudo_ecg_2 or 'Aguardando Laudo' }}</strong></td>
+                <td>{{ p.medico_ecg_2 or '--' }}</td>
+            </tr>
+            <tr>
+                <td>Troponina</td>
+                <td>{{ p.alvo_2.tropo or '--:--' }}</td>
+                <td>{{ p.exec_trop_2 or '--:--' }}</td>
+                <td>{{ p.executor_trop_2 or '--' }}</td>
+            </tr>
+        </table>
+        {% endif %}
+
+        <div class="assinaturas">
+            <div>
+                <div class="linha-assinatura">Assinatura / Carimbo do Médico Responsável</div>
+            </div>
+            <div>
+                <div class="linha-assinatura">Assinatura / Carimbo da Enfermagem</div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        window.onload = function() {
+            // Força a abertura da caixa de diálogo de impressão ao carregar a página
+            // window.print();
+        };
+    </script>
+</body>
+</html>
