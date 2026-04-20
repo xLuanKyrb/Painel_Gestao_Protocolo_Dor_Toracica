@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="refresh" content="60">
     <title>Painel ECG - UPA</title>
+    <link rel="icon" href="/templates/eletro-icone.png" type="image/png">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <style>
@@ -65,6 +66,24 @@
             opacity: 0.8;
             filter: grayscale(0%);
         }
+
+        /* Estilos Customizados para o Modal Profissional */
+        .opt-acao-btn {
+            text-align: left;
+            padding: 8px 12px;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+        .btn-check:checked + .opt-acao-btn {
+            background-color: var(--bs-primary);
+            color: #fff !important;
+            border-color: var(--bs-primary);
+            box-shadow: 0 4px 6px rgba(13, 110, 253, 0.2);
+            transform: translateY(-1px);
+        }
+        .btn-check:checked + .opt-acao-btn i {
+            color: #fff !important;
+        }
     </style>
 </head>
 <body class="bg-light text-body">
@@ -82,6 +101,14 @@
                     <a href="/historico" class="btn btn-warning btn-sm fw-bold">Histórico</a>
                     <a href="/tela" class="btn btn-primary btn-sm fw-bold">Painel</a>
                     <a href="/" class="btn btn-warning btn-sm fw-bold">Cadastro</a>
+                    <button type="button" class="btn btn-success btn-sm fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#modalTutorial">
+                    <i class="bi bi-question-circle-fill me-1"></i> Como Usar?
+                    </button>
+                    <button class="btn btn-outline-light btn-sm" id="btnDarkMode" onclick="toggleDarkMode()" title="Alternar Modo Noturno">
+        <i class="bi bi-moon-stars-fill"></i>
+    </button>
+</div>
+
                 </div>
             </div>
         </nav>
@@ -119,9 +146,20 @@
                             </div>                    
 
                             <div class="mb-2">
+                                <label for="se" class="small-label">Setor</label>
+                                <select name="setor" id="f_setor_select" class="form-select form-select-sm">
+                                    <option value="">Selecione o Setor</option>
+                                    <option value="sala_decisao">Sala de Decisão</option>
+                                    <option value="emergencia">Emergência</option>
+                                    <option value="observacao">Observação</option>
+                                    <option value="medicacao">Medicação</option>
+                                </select>
+                            </div>
+
+                            <div class="mb-2">
                                 <label class="small-label">Classificação (Rota)</label>
                                 <select name="cor_paciente" class="form-select form-select-sm" id="f_cor">
-                                    <option value="normal">Normal / Eletivo</option>
+                                    <option value="normal">Eletivo</option>
                                     <option value="rota_amarelo">Rota Amarela</option>
                                     <option value="rota_vermelho">Rota Vermelha</option>
                                 </select>
@@ -198,7 +236,7 @@
                                     <div class="text-secondary small mb-2">
                                         <i class="bi bi-calendar"></i> {{p.nascimento}} 
                                         | <i class="bi bi-hash"></i> {{p.atendimento}}
-                                        
+                                            <i class="bi bi-clock"></i> {{p.setor}}
                                         <div class="small mt-1" style="font-size: 0.75rem;"><em>{{ p.avaliacao }}</em></div>
                                         
                                         {% if p.cor_paciente == 'rota_amarelo' %} 
@@ -212,20 +250,22 @@
 
                                     <hr class="my-2 border-secondary opacity-25">
 
-                                    <button type="button" class="btn btn-sm btn-success mb-2 w-100 fw-bold shadow-sm" onclick="abrirModalAcoes({{ p.id }}, '{{ p.nome }}')">
+                                    <button type="button" class="btn btn-sm btn-success mb-2 w-100 fw-bold shadow-sm" onclick="abrirModalAcoes({{ p.id }}, '{{ p.nome }}', '{{ p.cor_paciente }}')">
                                         <i class="bi bi-play-circle me-1"></i> Lançar Ação
                                     </button>
+
+                                    <div class="d-flex align-items-center gap-2">
 
                                     <div class="row g-1">
                                         <div class="col-4">
                                             <button class="btn btn-sm btn-primary w-100 text-truncate shadow-sm" title="Editar Dados"
-                                            onclick='carregar({{ p.id }}, "{{ p.nome }}", "{{ p.nascimento }}", "{{ p.atendimento }}", "{{ p.cor_paciente }}", "{{ p.avaliacao or "" }}", "{{ p.presc_ecg_1 or "" }}", "{{ p.presc_ecg_2 or "" }}", "{{ p.presc_ecg_3 or "" }}", "{{ p.prescritor_ecg_1 or "" }}", "{{ p.prescritor_ecg_2 or "" }}", "{{ p.prescritor_ecg_3 or "" }}")'>
+                                            onclick='carregar({{ p.id }}, "{{ p.nome }}", "{{ p.nascimento }}", "{{ p.atendimento }}", "{{ p.setor or "" }}", "{{ p.cor_paciente }}", "{{ p.avaliacao or "" }}", "{{ p.presc_ecg_1 or "" }}", "{{ p.presc_ecg_2 or "" }}", "{{ p.presc_ecg_3 or "" }}", "{{ p.prescritor_ecg_1 or "" }}", "{{ p.prescritor_ecg_2 or "" }}", "{{ p.prescritor_ecg_3 or "" }}")'>
                                                 <i class="bi bi-pencil-square"></i>
                                             </button>
                                         </div>
                                         
                                         <div class="col-4">
-                                            <a href="/imprimir_resumo/{{ p.id }}" target="_blank" class="btn btn-sm btn-outline-yellow w-100 text-truncate shadow-sm" title="Imprimir Prontuário">
+                                            <a href="/imprimir_resumo/{{ p.id }}" target="_blank" class="btn btn-sm btn-outline-warning w-100 text-truncate shadow-sm" title="Imprimir Prontuário">
                                                 <i class="bi bi-printer-fill"></i>
                                             </a>
                                         </div>
@@ -267,6 +307,7 @@
                                         {% endif %}
                                     </div>
 
+                                    {% if p.cor_paciente != 'normal' %}
                                     <div class="proc-card border-danger mb-1">
                                         <div class="card-header-custom text-danger fw-bold">
                                             <i class="bi bi-droplet-fill me-1"></i> TROPONINA
@@ -330,8 +371,14 @@
                                             </div>
                                         </div>
                                     </div>
+                                    {% else %}
+                                    <div class="text-center mt-3 text-secondary" style="font-size: 0.75rem; opacity: 0.6;">
+                                        <i class="bi bi-info-circle"></i> Eletivo: Apenas ECG
+                                    </div>
+                                    {% endif %}
                                 </td>
                                 
+                                {% if p.cor_paciente != 'normal' %}
                                 <td class="p-2 align-top border-start bg-body celula-rota">
                                     
                                     {% if p.prox_ecg_1 %}
@@ -383,38 +430,6 @@
                                         </div>
                                     </div>
 
-                                    <div class="proc-card border-success mb-1">
-                                        <div class="card-header-custom text-success fw-bold">
-                                            <i class="bi bi-capsule me-1"></i> MEDICAÇÃO
-                                        </div>
-                                        <div class="d-flex text-center p-1">
-                                            <div class="col-6 border-end">
-                                                <div class="time-label text-secondary">Alvo Previsto</div>
-                                                <div class="time-value text-danger alvo-time">{{ p.alvo_2.med or '--:--' }}</div>
-                                            </div>
-                                            <div class="col-6">
-                                                <div class="time-label {% if p.exec_med_2 %}text-success{% else %}text-secondary{% endif %}">Realizado</div>
-                                                <div class="time-value {% if p.exec_med_2 %}text-success{% else %}text-secondary opacity-50{% endif %} realizado-time">{{ p.exec_med_2 or '--:--' }}</div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div class="proc-card border-info mb-1">
-                                        <div class="card-header-custom text-info fw-bold">
-                                            <i class="bi bi-file-medical me-1"></i> RAIO-X
-                                        </div>
-                                        <div class="d-flex text-center p-1">
-                                            <div class="col-6 border-end">
-                                                <div class="time-label text-secondary">Alvo Previsto</div>
-                                                <div class="time-value text-danger alvo-time">{{ p.alvo_2.rx or '--:--' }}</div>
-                                            </div>
-                                            <div class="col-6">
-                                                <div class="time-label {% if p.exec_rx_2 %}text-success{% else %}text-secondary{% endif %}">Realizado</div>
-                                                <div class="time-value {% if p.exec_rx_2 %}text-success{% else %}text-secondary opacity-50{% endif %} realizado-time">{{ p.exec_rx_2 or '--:--' }}</div>
-                                            </div>
-                                        </div>
-                                    </div>
-
                                     <div class="proc-card border-primary">
                                         <div class="card-header-custom text-primary fw-bold">
                                             <i class="bi bi-clipboard2-pulse me-1"></i> AVALIAÇÃO
@@ -431,7 +446,13 @@
                                         </div>
                                     </div>
                                 </td>
+                                {% else %}
+                                <td class="p-2 align-top border-start bg-body-secondary text-center" style="opacity: 0.4;">
+                                    <div class="mt-4"><i class="bi bi-slash-circle fs-4 text-secondary"></i><br><small>Não se aplica</small></div>
+                                </td>
+                                {% endif %}
 
+                                {% if p.cor_paciente != 'normal' %}
                                 <td class="p-2 align-top border-start bg-body-tertiary celula-rota">
                                     
                                     {% if p.prox_ecg_2 %}
@@ -483,38 +504,6 @@
                                         </div>
                                     </div>
 
-                                    <div class="proc-card border-success mb-1">
-                                        <div class="card-header-custom text-success fw-bold">
-                                            <i class="bi bi-capsule me-1"></i> MEDICAÇÃO
-                                        </div>
-                                        <div class="d-flex text-center p-1">
-                                            <div class="col-6 border-end">
-                                                <div class="time-label text-secondary">Alvo Previsto</div>
-                                                <div class="time-value text-danger alvo-time">{{ p.alvo_3.med or '--:--' }}</div>
-                                            </div>
-                                            <div class="col-6">
-                                                <div class="time-label {% if p.exec_med_3 %}text-success{% else %}text-secondary{% endif %}">Realizado</div>
-                                                <div class="time-value {% if p.exec_med_3 %}text-success{% else %}text-secondary opacity-50{% endif %} realizado-time">{{ p.exec_med_3 or '--:--' }}</div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div class="proc-card border-info mb-1">
-                                        <div class="card-header-custom text-info fw-bold">
-                                            <i class="bi bi-file-medical me-1"></i> RAIO-X
-                                        </div>
-                                        <div class="d-flex text-center p-1">
-                                            <div class="col-6 border-end">
-                                                <div class="time-label text-secondary">Alvo Previsto</div>
-                                                <div class="time-value text-danger alvo-time">{{ p.alvo_3.rx or '--:--' }}</div>
-                                            </div>
-                                            <div class="col-6">
-                                                <div class="time-label {% if p.exec_rx_3 %}text-success{% else %}text-secondary{% endif %}">Realizado</div>
-                                                <div class="time-value {% if p.exec_rx_3 %}text-success{% else %}text-secondary opacity-50{% endif %} realizado-time">{{ p.exec_rx_3 or '--:--' }}</div>
-                                            </div>
-                                        </div>
-                                    </div>
-
                                     <div class="proc-card border-primary">
                                         <div class="card-header-custom text-primary fw-bold">
                                             <i class="bi bi-clipboard2-pulse me-1"></i> AVALIAÇÃO
@@ -531,6 +520,11 @@
                                         </div>
                                     </div>
                                 </td>
+                                {% else %}
+                                <td class="p-2 align-top border-start bg-body-secondary text-center" style="opacity: 0.4;">
+                                    <div class="mt-4"><i class="bi bi-slash-circle fs-4 text-secondary"></i><br><small>Não se aplica</small></div>
+                                </td>
+                                {% endif %}
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -555,17 +549,24 @@
                 <span class="text-secondary small text-uppercase">Paciente</span>
                 <h5 id="saida_nome_paciente" class="fw-bold"></h5>
             </div>
+            
             <div class="mb-3">
                 <label class="form-label fw-bold small text-primary">Tipo de Saída</label>
                 <select name="tipo_saida" id="select_tipo_saida" class="form-select border-primary" onchange="verificarTransferencia(this)" required>
                     <option value="" selected disabled>Selecione o motivo...</option>
                     <option value="alta">Alta Médica</option>
-                    <option value="ecg_normal">ECG - Normal (Ritmo Sinusal)</option>
+                    <option value="ecg_normal">ECG - Eletivo </option>
                     <option value="evasao">Evasão</option>
                     <option value="transferencia">Transferência</option>
                     <option value="obito">Óbito</option>
                 </select>
             </div>
+            
+            <div class="mb-3 border-start border-4 border-warning ps-2">
+                <label class="form-label small fw-bold">Responsável pelo Desfecho</label>
+                <input type="text" name="medico_alta" class="form-control form-control-sm" placeholder="Responsável" required>
+            </div>
+
             <div id="campos_transferencia" class="border p-3 rounded bg-body-secondary shadow-sm mb-3" style="display: none;">
                 <label class="small-label text-danger mb-2"><i class="bi bi-ambulance"></i> Dados da Transferência</label>
                 <div class="mb-2">
@@ -577,6 +578,7 @@
                     <input type="time" name="hora_transferencia" class="form-control form-control-sm">
                 </div>
             </div>
+
             <div class="d-grid">
                 <button type="submit" class="btn btn-danger fw-bold">Confirmar Saída</button>
             </div>
@@ -587,66 +589,120 @@
 </div>
 
 <div class="modal fade" id="modalAcoes" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog">
+  <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content border-0 shadow-lg">
-      <div class="modal-header bg-success text-white">
-        <h5 class="modal-title"><i class="bi bi-play-circle me-2"></i>Lançar Execução / Laudo</h5>
+      <div class="modal-header bg-success text-white border-bottom-0">
+        <h5 class="modal-title"><i class="bi bi-play-circle-fill me-2"></i>Registrar Ação no Protocolo</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
-      <div class="modal-body bg-body">
+      
+      <div class="modal-body bg-body px-4 pt-2">
         <form action="/marcar_execucao" method="POST" id="formAcoes">
             <input type="hidden" name="id_rota" id="acao_id_paciente">
-            <div class="text-center mb-4">
-                <span class="text-secondary small text-uppercase">Paciente Selecionado</span>
-                <h5 id="acao_nome_paciente" class="fw-bold mb-0"></h5>
+            
+            <div class="alert alert-secondary py-2 px-3 border-0 shadow-sm d-flex align-items-center mb-4">
+                <i class="bi bi-person-circle fs-3 text-secondary me-3"></i>
+                <div>
+                    <div class="small text-uppercase text-muted" style="font-size: 0.65rem; font-weight: 700; letter-spacing: 0.5px;">Paciente Selecionado</div>
+                    <div id="acao_nome_paciente" class="fw-bold fs-6 text-dark"></div>
+                </div>
             </div>
-            <div class="card shadow-sm border-0 mb-3 bg-body-tertiary">
-                <div class="card-body p-3">
-                    <div class="mb-3">
-                        <label class="form-label small fw-bold text-success">O que foi realizado?</label>
-                        <select name="coluna_selecionada" class="form-select border-success" required>
-                            <option value="" selected disabled>Selecione a ação...</option>
-                            <optgroup label="--- 1ª ROTA ---">
-                                <option value="exec_ecg_1">📈 Realização do 1º ECG</option>
-                                <option value="laudo_ecg_1">📋 Laudo do 1º ECG</option>
-                                <option value="vis_crm_1">👁️ Vis. CRM (1º ECG)</option>
-                                <option value="exec_trop_1">🩸 Coleta 1ª Troponina</option>
-                                <option value="exec_med_1">💊 Adm. Medicação (1ª Rota)</option>
-                                <option value="exec_rx_1">🩻 Realização Raio-X (1ª Rota)</option>
-                                <option value="avalia_rota_1">🩺 Avaliação Médica (1ª Rota)</option>
-                            </optgroup>
-                            <optgroup label="--- 2ª ROTA ---">
-                                <option value="exec_ecg_2">📈 Realização do 2º ECG</option>
-                                <option value="laudo_ecg_2">📋 Laudo do 2º ECG</option>
-                                <option value="vis_crm_2">👁️ Vis. CRM (2º ECG)</option>
-                                <option value="exec_trop_2">🩸 Coleta 2ª Troponina</option>
-                                <option value="exec_med_2">💊 Adm. Medicação (2ª Rota)</option>
-                                <option value="exec_rx_2">🩻 Realização Raio-X (2ª Rota)</option>
-                                <option value="avalia_rota_2">🩺 Avaliação Médica (2ª Rota)</option>
-                            </optgroup>
-                            <optgroup label="--- 3ª ROTA ---">
-                                <option value="exec_ecg_3">📈 Realização do 3º ECG</option>
-                                <option value="laudo_ecg_3">📋 Laudo do 3º ECG</option>
-                                <option value="vis_crm_3">👁️ Vis. CRM (3º ECG)</option>
-                                <option value="exec_trop_3">🩸 Coleta 3ª Troponina</option>
-                                <option value="exec_med_3">💊 Adm. Medicação (3ª Rota)</option>
-                                <option value="exec_rx_3">🩻 Realização Raio-X (3ª Rota)</option>
-                                <option value="avalia_rota_3">🩺 Avaliação Médica (3ª Rota)</option>
-                            </optgroup>
-                        </select>
+            
+            <div class="mb-4">
+                <label class="form-label small fw-bold text-success text-uppercase mb-3"><i class="bi bi-ui-checks-grid me-1"></i> O que foi realizado?</label>
+                
+                <div id="grupo_rota_1" class="mb-3">
+                    <div class="text-muted small fw-bold mb-2 border-bottom pb-1" style="font-size: 0.7rem;">1ª ROTA</div>
+                    <div class="d-flex flex-wrap gap-2">
+                        <input type="radio" class="btn-check" name="coluna_selecionada" id="opt_ecg1" value="exec_ecg_1" required>
+                        <label class="btn btn-outline-secondary opt-acao-btn lbl-ecg" for="opt_ecg1" data-tipo="ecg"><i class="bi bi-graph-up text-secondary me-1"></i> 1º ECG</label>
+
+                        <input type="radio" class="btn-check" name="coluna_selecionada" id="opt_vis1" value="vis_crm_1">
+                        <label class="btn btn-outline-secondary opt-acao-btn lbl-ecg" for="opt_vis1" data-tipo="ecg"><i class="bi bi-eye text-secondary me-1"></i> Visualizou ECG</label>
+
+                        <input type="radio" class="btn-check" name="coluna_selecionada" id="opt_laudo1" value="laudo_ecg_1">
+                        <label class="btn btn-outline-secondary opt-acao-btn lbl-ecg" for="opt_laudo1" data-tipo="ecg"><i class="bi bi-clipboard-check text-secondary me-1"></i> Laudo ECG</label>
+
+                        <input type="radio" class="btn-check" name="coluna_selecionada" id="opt_trop1" value="exec_trop_1">
+                        <label class="btn btn-outline-danger opt-acao-btn lbl-rota" for="opt_trop1" data-tipo="rota"><i class="bi bi-droplet-fill text-danger me-1"></i> Troponina</label>
+
+                        <input type="radio" class="btn-check" name="coluna_selecionada" id="opt_med1" value="exec_med_1">
+                        <label class="btn btn-outline-success opt-acao-btn lbl-rota" for="opt_med1" data-tipo="rota"><i class="bi bi-capsule text-success me-1"></i> Medicação</label>
+
+                        <input type="radio" class="btn-check" name="coluna_selecionada" id="opt_rx1" value="exec_rx_1">
+                        <label class="btn btn-outline-info opt-acao-btn lbl-rota" for="opt_rx1" data-tipo="rota"><i class="bi bi-file-medical text-info me-1"></i> Raio-X</label>
+
+                        <input type="radio" class="btn-check" name="coluna_selecionada" id="opt_aval1" value="avalia_rota_1">
+                        <label class="btn btn-outline-primary opt-acao-btn lbl-rota" for="opt_aval1" data-tipo="rota"><i class="bi bi-clipboard2-pulse text-primary me-1"></i> Avaliação Médica</label>
                     </div>
-                    <div class="mb-2">
-                        <label class="form-label small fw-bold text-secondary">Profissional (Nome / CRM / COREN)</label>
-                        <div class="input-group">
-                            <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
-                            <input type="text" name="profissional" class="form-control" required placeholder="Quem executou/laudou?">
-                        </div>
+                </div>
+
+                <div id="grupo_rota_2" class="mb-3">
+                    <div class="text-muted small fw-bold mb-2 border-bottom pb-1" style="font-size: 0.7rem;">2ª ROTA</div>
+                    <div class="d-flex flex-wrap gap-2">
+                        <input type="radio" class="btn-check" name="coluna_selecionada" id="opt_ecg2" value="exec_ecg_2">
+                        <label class="btn btn-outline-secondary opt-acao-btn" for="opt_ecg2"><i class="bi bi-graph-up text-secondary me-1"></i> 2º ECG</label>
+
+                        <input type="radio" class="btn-check" name="coluna_selecionada" id="opt_vis2" value="vis_crm_2">
+                        <label class="btn btn-outline-secondary opt-acao-btn" for="opt_vis2"><i class="bi bi-eye text-secondary me-1"></i> Visualizou ECG</label>
+
+                        <input type="radio" class="btn-check" name="coluna_selecionada" id="opt_laudo2" value="laudo_ecg_2">
+                        <label class="btn btn-outline-secondary opt-acao-btn" for="opt_laudo2"><i class="bi bi-clipboard-check text-secondary me-1"></i> Laudo ECG</label>
+
+                        <input type="radio" class="btn-check" name="coluna_selecionada" id="opt_trop2" value="exec_trop_2">
+                        <label class="btn btn-outline-danger opt-acao-btn" for="opt_trop2"><i class="bi bi-droplet-fill text-danger me-1"></i> Troponina</label>
+
+                        <input type="radio" class="btn-check" name="coluna_selecionada" id="opt_aval2" value="avalia_rota_2">
+                        <label class="btn btn-outline-primary opt-acao-btn" for="opt_aval2"><i class="bi bi-clipboard2-pulse text-primary me-1"></i> Avaliação Médica</label>
+                    </div>
+                </div>
+
+                <div id="grupo_rota_3" class="mb-3">
+                    <div class="text-muted small fw-bold mb-2 border-bottom pb-1" style="font-size: 0.7rem;">3ª ROTA</div>
+                    <div class="d-flex flex-wrap gap-2">
+                        <input type="radio" class="btn-check" name="coluna_selecionada" id="opt_ecg3" value="exec_ecg_3">
+                        <label class="btn btn-outline-secondary opt-acao-btn" for="opt_ecg3"><i class="bi bi-graph-up text-secondary me-1"></i> 3º ECG</label>
+
+                        <input type="radio" class="btn-check" name="coluna_selecionada" id="opt_vis3" value="vis_crm_3">
+                        <label class="btn btn-outline-secondary opt-acao-btn" for="opt_vis3"><i class="bi bi-eye text-secondary me-1"></i> Visualizou ECG</label>
+
+                        <input type="radio" class="btn-check" name="coluna_selecionada" id="opt_laudo3" value="laudo_ecg_3">
+                        <label class="btn btn-outline-secondary opt-acao-btn" for="opt_laudo3"><i class="bi bi-clipboard-check text-secondary me-1"></i> Laudo ECG</label>
+
+                        <input type="radio" class="btn-check" name="coluna_selecionada" id="opt_trop3" value="exec_trop_3">
+                        <label class="btn btn-outline-danger opt-acao-btn" for="opt_trop3"><i class="bi bi-droplet-fill text-danger me-1"></i> Troponina</label>
+
+                        <input type="radio" class="btn-check" name="coluna_selecionada" id="opt_aval3" value="avalia_rota_3">
+                        <label class="btn btn-outline-primary opt-acao-btn" for="opt_aval3"><i class="bi bi-clipboard2-pulse text-primary me-1"></i> Avaliação Médica</label>
                     </div>
                 </div>
             </div>
-            <div class="d-grid">
-                <button type="submit" class="btn btn-success fw-bold shadow-sm p-2">
-                    <i class="bi bi-check2-circle me-2"></i>Confirmar Registro
+
+            <div class="row g-2 mb-3">
+                <div class="col-md-8">
+                    <div class="form-floating shadow-sm border border-secondary border-opacity-25 rounded">
+                        <input type="text" name="profissional" class="form-control bg-body" id="floatProfissional" placeholder="João / CRM / COREN" required>
+                        <label for="floatProfissional" class="text-secondary"><i class="bi bi-person-badge me-1"></i> Profissional (Nome / Registro)</label>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-floating shadow-sm border border-secondary border-opacity-25 rounded">
+                        <input type="time" name="horario" class="form-control bg-body fw-bold text-primary" id="floatHorario" required>
+                        <label for="floatHorario" class="text-secondary"><i class="bi bi-clock me-1"></i> Horário</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-check form-switch p-3 mb-4 border border-danger rounded bg-danger bg-opacity-10 d-flex align-items-center justify-content-between shadow-sm">
+                <label class="form-check-label text-danger fw-bold mb-0" style="cursor: pointer;" for="checkAnular">
+                    <i class="bi bi-exclamation-triangle-fill me-2 fs-5 align-middle"></i> <span class="align-middle">Anular Ação / Não Realizado</span>
+                </label>
+                <input class="form-check-input m-0 fs-4 border-danger cursor-pointer" type="checkbox" role="switch" name="anular_acao" id="checkAnular" value="sim" onchange="document.getElementById('floatHorario').disabled = this.checked; document.getElementById('floatHorario').required = !this.checked;" style="cursor: pointer;">
+            </div>
+
+            <div class="d-grid mb-2">
+                <button type="submit" class="btn btn-success btn-lg fw-bold shadow">
+                    <i class="bi bi-check2-all me-2"></i>Gravar no Protocolo
                 </button>
             </div>
         </form>
@@ -655,9 +711,125 @@
   </div>
 </div>
 
+<div class="modal fade" id="modalTutorial" tabindex="-1" aria-labelledby="modalTutorialLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
+    <div class="modal-content border-0 shadow-lg">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title fw-bold" id="modalTutorialLabel">
+            <i class="bi bi-book-half me-2"></i>Guia Rápido - Protocolo de Dor Torácica
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body bg-body-tertiary p-4">
+        
+        <p class="text-secondary small mb-4 text-center">
+            Bem-vindo ao painel. Este sistema gerencia os tempos-alvo (SLA) para garantir o melhor atendimento ao paciente cardiológico. Veja como preencher corretamente:
+        </p>
+
+        <div class="accordion shadow-sm" id="accordionTutorial">
+          
+          <div class="accordion-item border-0 mb-2 rounded">
+            <h2 class="accordion-header" id="headingOne">
+              <button class="accordion-button fw-bold text-dark" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="true" aria-controls="collapseOne">
+                <i class="bi bi-person-vcard fs-5 text-primary me-2"></i> 1. Como Cadastrar e Escolher a Rota?
+              </button>
+            </h2>
+            <div id="collapseOne" class="accordion-collapse collapse show" aria-labelledby="headingOne" data-bs-parent="#accordionTutorial">
+              <div class="accordion-body small bg-body">
+                Na barra lateral esquerda, preencha os dados do paciente. O ponto mais importante é a <strong>Classificação (Rota)</strong>:
+                <ul class="mt-2 text-muted">
+                    <li><span class="badge bg-secondary">ELETIVO</span> - Libera apenas o preenchimento do ECG. Ignora exames de sangue e medicações.</li>
+                    <li><span class="badge bg-warning text-dark">AMARELA</span> ou <span class="badge bg-danger">VERMELHA</span> - Ativa o protocolo completo. Exige ECG, Avaliação, Troponina, Medicação e Raio-X. O sistema cobrará os tempos!</li>
+                </ul>
+                <div class="alert alert-info py-2 mb-0 mt-2 border-0 border-start border-4 border-info">
+                    <i class="bi bi-info-circle-fill me-1"></i> Sempre insira a hora que o ECG foi <strong>solicitado</strong> no rodapé do cadastro para o sistema calcular o alvo corretamente.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="accordion-item border-0 mb-2 rounded">
+            <h2 class="accordion-header" id="headingTwo">
+              <button class="accordion-button collapsed fw-bold text-dark" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
+                <i class="bi bi-play-circle-fill fs-5 text-success me-2"></i> 2. Como Lançar uma Ação / Exame? (MUITO IMPORTANTE)
+              </button>
+            </h2>
+            <div id="collapseTwo" class="accordion-collapse collapse" aria-labelledby="headingTwo" data-bs-parent="#accordionTutorial">
+              <div class="accordion-body small bg-body">
+                Para registrar que um procedimento foi feito, siga a ordem:
+                <ol class="mt-2 mb-3 text-muted">
+                    <li>Encontre o paciente na tabela e clique no botão verde <strong>"Lançar Ação"</strong>.</li>
+                    <li>No painel que abrir, selecione o quadradinho exato do que você fez (Ex: "1º ECG" na 1ª Rota).</li>
+                    <li>Digite o seu Nome ou Registro profissional no campo abaixo.</li>
+                    <li>Confirme o Horário. Se foi no exato momento, deixe como está. Caso tenha feito antes e só foi preencher agora, altere o relógio!</li>
+                </ol>
+                <div class="alert alert-warning py-2 mb-0 border-0 border-start border-4 border-warning">
+                    <i class="bi bi-exclamation-triangle-fill me-1 text-warning"></i> <strong>Não fez o exame e o sistema está cobrando?</strong><br>
+                    Se a conduta médica foi NÃO pedir Raio-X ou Medicação, clique em Lançar Ação, selecione o exame, e marque o botão vermelho <strong>"Anular Ação / Não Realizado"</strong> no final da tela. Isso limpa o alerta.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="accordion-item border-0 mb-2 rounded">
+            <h2 class="accordion-header" id="headingThree">
+              <button class="accordion-button collapsed fw-bold text-dark" type="button" data-bs-toggle="collapse" data-bs-target="#collapseThree" aria-expanded="false" aria-controls="collapseThree">
+                <i class="bi bi-alarm-fill fs-5 text-danger me-2"></i> 3. Entendendo os Tempos e Alertas
+              </button>
+            </h2>
+            <div id="collapseThree" class="accordion-collapse collapse" aria-labelledby="headingThree" data-bs-parent="#accordionTutorial">
+              <div class="accordion-body small bg-body text-muted">
+                O sistema é inteligente e sabe exatamente quanto tempo cada procedimento pode demorar.
+                <ul class="mt-2 mb-0">
+                    <li><strong class="text-danger">Piscou em Vermelho?</strong> Significa que o tempo-alvo daquele procedimento estourou e o paciente está em risco. Corra para atualizar ou cobrar a equipe.</li>
+                    <li><strong class="text-success">Marcado em Verde ou Azul?</strong> Procedimento realizado dentro da normalidade.</li>
+                    <li><strong>Rota Concluída:</strong> Quando todos os exames daquela rota (coluna) são feitos, ela fica "apagada" (cinza) para que você foque apenas nas próximas ações pendentes.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div class="accordion-item border-0 rounded">
+            <h2 class="accordion-header" id="headingFour">
+              <button class="accordion-button collapsed fw-bold text-dark" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFour" aria-expanded="false" aria-controls="collapseFour">
+                <i class="bi bi-door-open-fill fs-5 text-warning me-2"></i> 4. Como Registrar a Saída ou Alta?
+              </button>
+            </h2>
+            <div id="collapseFour" class="accordion-collapse collapse" aria-labelledby="headingFour" data-bs-parent="#accordionTutorial">
+              <div class="accordion-body small bg-body text-muted">
+                O paciente finalizou o atendimento ou foi transferido?<br>
+                Não o deixe "travado" na tela.
+                <ol class="mt-2 mb-0">
+                    <li>Clique no botão vermelho com ícone de porta (<i class="bi bi-door-open-fill text-danger"></i>) na linha do paciente.</li>
+                    <li>Selecione o motivo: Alta, Eletivo, Transferência ou Óbito.</li>
+                    <li>Insira o nome do médico responsável.</li>
+                    <li>Isso arquivará o paciente e limpará a tela. Você poderá consultar os dados dele futuramente na aba <strong>"Histórico"</strong>.</li>
+                </ol>
+              </div>
+            </div>
+          </div>
+
+        </div> </div>
+      <div class="modal-footer bg-body border-top-0">
+        <button type="button" class="btn btn-secondary fw-bold" data-bs-dismiss="modal">Entendi, fechar guia</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
+
+document.addEventListener("DOMContentLoaded", () => {
+    initTheme(); 
+    atualizarUXPainel(); 
+    setInterval(atualizarUXPainel, 150000); 
+
+    const modalTutorial = new bootstrap.Modal(document.getElementById('modalTutorial'));
+    modalTutorial.show();
+});
+
 // --- CONTROLE DO MODO NOTURNO ---
 function initTheme() {
     const savedTheme = localStorage.getItem('theme') || 'light';
@@ -685,7 +857,6 @@ function atualizarIconeTema(theme) {
 // --- FILTROS RÁPIDOS DA TABELA ---
 document.querySelectorAll('.btn-filtro').forEach(btn => {
     btn.addEventListener('click', (e) => {
-        // Ajusta cores dos botões
         document.querySelectorAll('.btn-filtro').forEach(b => {
             b.classList.remove('btn-primary');
             b.classList.add('btn-outline-primary');
@@ -709,12 +880,13 @@ document.querySelectorAll('.btn-filtro').forEach(btn => {
     });
 });
 
-// --- FUNÇÕES DOS FORMULÁRIOS (Existentes) ---
-function carregar(id, nome, nasc, atend, cor, avaliacao, pe1, pe2, pe3, prec1, prec2, prec3) {
+// --- FUNÇÕES DOS FORMULÁRIOS ---
+function carregar(id, nome, nasc, atend, setor, cor, avaliacao, pe1, pe2, pe3, prec1, prec2, prec3) {
     document.getElementById('f_id').value = id;
     document.getElementById('f_nome').value = nome;
     document.getElementById('f_nasc').value = nasc;
     document.getElementById('f_atend').value = atend;
+    document.getElementById('f_setor_select').value = setor;
     document.getElementById('f_cor').value = cor;
     document.getElementById('f_cor_ant').value = cor; 
     document.getElementById('f_avaliacao').value = avaliacao;
@@ -730,7 +902,8 @@ function carregar(id, nome, nasc, atend, cor, avaliacao, pe1, pe2, pe3, prec1, p
 function limparFormulario() {
     document.querySelector('form[action="/salvar"]').reset();
     document.getElementById('f_id').value = "";
-    document.getElementById('f_cor_ant').value = ""; 
+    document.getElementById('f_cor_ant').value = "";
+    document.getElementById('f_setor_select').value = "";
     let header = document.getElementById('headerForm');
     header.innerHTML = '<span><i class="bi bi-person-vcard me-2"></i>Novo Paciente</span> <button type="button" class="btn btn-sm btn-light py-0 text-primary" onclick="limparFormulario()"><strong>+</strong></button>';
     header.className = "card-header bg-primary text-white fw-bold d-flex justify-content-between align-items-center";
@@ -759,10 +932,36 @@ function verificarTransferencia(select) {
     }
 }
 
-function abrirModalAcoes(id, nome) {
+// NOVA LÓGICA DO MODAL PROFISSIONAL (RADIO BUTTONS)
+function abrirModalAcoes(id, nome, corPaciente) {
     document.getElementById('acao_id_paciente').value = id;
     document.getElementById('acao_nome_paciente').innerText = nome;
+    
+    // Reseta o form (desmarca todos os radios e o toggle de anular)
     document.getElementById('formAcoes').reset();
+    document.getElementById('floatHorario').disabled = false;
+    
+    const agora = new Date();
+    const horaAtual = agora.getHours().toString().padStart(2, '0') + ':' + agora.getMinutes().toString().padStart(2, '0');
+    document.getElementById('floatHorario').value = horaAtual;
+
+    // Reseta a visibilidade padrão
+    document.getElementById('grupo_rota_2').style.display = 'block';
+    document.getElementById('grupo_rota_3').style.display = 'block';
+    document.querySelectorAll('.lbl-rota').forEach(lbl => lbl.style.display = 'inline-block');
+
+    // Lógica Eletiva vs Rota
+    if (corPaciente === 'normal') {
+        // Esconde Rota 2 e 3
+        document.getElementById('grupo_rota_2').style.display = 'none';
+        document.getElementById('grupo_rota_3').style.display = 'none';
+        
+        // Na Rota 1, esconde tudo que não for ECG
+        document.querySelectorAll('.lbl-rota').forEach(lbl => {
+            lbl.style.display = 'none';
+        });
+    }
+
     new bootstrap.Modal(document.getElementById('modalAcoes')).show();
 }
 
@@ -775,11 +974,9 @@ function reordenarPacientes() {
         let scoreA = 0;
         let scoreB = 0;
 
-        // 1. Tem Atraso (Ganham 1000 pontos e sobem pro topo)
         if (a.querySelector('.atrasado')) scoreA += 1000;
         if (b.querySelector('.atrasado')) scoreB += 1000;
 
-        // 2. Classificação de Risco
         const rotaA = a.getAttribute('data-rota-pac');
         const rotaB = b.getAttribute('data-rota-pac');
         if (rotaA === 'rota_vermelho') scoreA += 500;
@@ -852,7 +1049,6 @@ function atualizarUXPainel() {
             }
         });
 
-        // BARRA DE PROGRESSO GLOBAL DO PACIENTE
         const progressBar = tr.querySelector('.barra-progresso');
         if (progressBar && totalCardsPaciente > 0) {
             const porcentagem = Math.round((concluidosPaciente / totalCardsPaciente) * 100);
@@ -872,9 +1068,9 @@ function atualizarUXPainel() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-    initTheme(); // Carrega o tema salvo
-    atualizarUXPainel(); // Faz a mágica visual
-    setInterval(atualizarUXPainel, 60000); // Roda a cada 10 segundos
+    initTheme(); 
+    atualizarUXPainel(); 
+    setInterval(atualizarUXPainel, 150000); 
 });
 </script>
 </body>

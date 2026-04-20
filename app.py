@@ -39,11 +39,10 @@ def init_db():
     conn = sqlite3.connect('upa_eletros.db')
     c = conn.cursor()
     
-    # Criação da tabela principal já com todas as colunas corretas
     c.execute('''
         CREATE TABLE IF NOT EXISTS pacientes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome TEXT, nascimento TEXT, atendimento TEXT,
+            nome TEXT, nascimento TEXT, atendimento TEXT, setor TEXT,
             
             presc_ecg_1 TEXT, prescritor_ecg_1 TEXT,
             exec_ecg_1 TEXT, executor_ecg_1 TEXT,
@@ -81,6 +80,12 @@ def init_db():
         )
     ''')
     
+    # Patch de segurança para adicionar o setor no banco caso ele já exista
+    try:
+        c.execute("ALTER TABLE pacientes ADD COLUMN setor TEXT")
+    except sqlite3.OperationalError:
+        pass # Se a coluna já existir, ele segue a vida
+
     c.execute('''
         CREATE TABLE IF NOT EXISTS logs_auditoria (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -106,21 +111,34 @@ def registrar_log(paciente_id, acao, profissional="SISTEMA"):
 # ==========================================
 # 3. REGRAS DE NEGÓCIO E TEMPO (SLA)
 # ==========================================
-def calcular_prazos(hora_prescricao):
-    if not hora_prescricao or hora_prescricao.strip() == "":
-        return None
-    try:
-        mz = datetime.strptime(hora_prescricao, "%H:%M")
-        prazos = {
-            'ecg': (mz + timedelta(minutes=10)).strftime("%H:%M"),
-            'tropo': (mz + timedelta(minutes=25)).strftime("%H:%M"),
-            'med': (mz + timedelta(minutes=55)).strftime("%H:%M"),
-            'rx': (mz + timedelta(minutes=85)).strftime("%H:%M"),
-            'aval': (mz + timedelta(minutes=125)).strftime("%H:%M")
-        }
-        return prazos
-    except ValueError:
-        return None
+def calcular_prazos(hora_prescricao, hora_exec_ecg=None):
+    prazos = {'ecg': None, 'tropo': None, 'med': None, 'rx': None, 'aval': None}
+    
+    if hora_prescricao and hora_prescricao.strip() != "":
+        try:
+            mz_presc = datetime.strptime(hora_prescricao, "%H:%M")
+            prazos['ecg'] = (mz_presc + timedelta(minutes=10)).strftime("%H:%M")
+        except ValueError:
+            pass
+            
+    base_calc = hora_exec_ecg if (hora_exec_ecg and hora_exec_ecg != "N/A" and hora_exec_ecg.strip() != "") else hora_prescricao
+    
+    if base_calc and base_calc.strip() != "":
+        try:
+            mz_base = datetime.strptime(base_calc, "%H:%M")
+            gap_trop = 15 if base_calc == hora_exec_ecg else 25
+            gap_med = 45 if base_calc == hora_exec_ecg else 55
+            gap_rx = 75 if base_calc == hora_exec_ecg else 85
+            gap_aval = 115 if base_calc == hora_exec_ecg else 125
+            
+            prazos['tropo'] = (mz_base + timedelta(minutes=gap_trop)).strftime("%H:%M")
+            prazos['med'] = (mz_base + timedelta(minutes=gap_med)).strftime("%H:%M")
+            prazos['rx'] = (mz_base + timedelta(minutes=gap_rx)).strftime("%H:%M")
+            prazos['aval'] = (mz_base + timedelta(minutes=gap_aval)).strftime("%H:%M")
+        except ValueError:
+            pass
+            
+    return prazos
 
 def calcular_urgencia(hora_prescricao, ja_executado):
     if not hora_prescricao or ja_executado: 
@@ -129,12 +147,9 @@ def calcular_urgencia(hora_prescricao, ja_executado):
     try:
         presc_time = datetime.strptime(hora_prescricao, "%H:%M").time()
         presc = datetime.combine(agora.date(), presc_time)
-        
         if presc > agora:
             presc -= timedelta(days=1)
-            
         diff = (agora - presc).total_seconds() / 60
-        
         if diff < 0: return "normal" 
         if diff <= 10: return "verde" 
         elif diff <= 30: return "amarelo"
@@ -143,7 +158,7 @@ def calcular_urgencia(hora_prescricao, ja_executado):
         return "normal"
 
 def calcular_proximo_ecg(exec_hora):
-    if not exec_hora: return None
+    if not exec_hora or exec_hora == "N/A": return None
     try:
         exec_dt = datetime.strptime(exec_hora, "%H:%M")
         proximo = (exec_dt + timedelta(hours=3)).time()
@@ -152,28 +167,23 @@ def calcular_proximo_ecg(exec_hora):
         return None
 
 def calcular_progresso_ecg(exec_hora):
-    if not exec_hora: return None
+    if not exec_hora or exec_hora == "N/A": return None
     try:
         agora = datetime.now()
         exec_time = datetime.strptime(exec_hora, "%H:%M").time()
         exec_dt = datetime.combine(agora.date(), exec_time)
-        
         if exec_dt > agora:
             exec_dt -= timedelta(days=1)
-
         fim = exec_dt + timedelta(hours=3)
         total = (fim - exec_dt).total_seconds()
         if total <= 0: return None
-
         decorrido = (agora - exec_dt).total_seconds()
         proporcao = decorrido / total
-        
         if proporcao < 0: proporcao = 0.0
         if proporcao > 1: proporcao = 1.0
         return proporcao
     except:
         return None
-
 
 # ==========================================
 # 4. ROTAS DA APLICAÇÃO (APIs)
@@ -229,9 +239,9 @@ def processar_lista_pacientes(rows):
         p['prog_ecg_1'] = calcular_progresso_ecg(p.get('exec_ecg_1'))
         p['prog_ecg_2'] = calcular_progresso_ecg(p.get('exec_ecg_2'))
         p['prog_ecg_3'] = calcular_progresso_ecg(p.get('exec_ecg_3'))
-        p['alvo_1'] = calcular_prazos(p.get('presc_ecg_1'))
-        p['alvo_2'] = calcular_prazos(p.get('presc_ecg_2'))
-        p['alvo_3'] = calcular_prazos(p.get('presc_ecg_3'))
+        p['alvo_1'] = calcular_prazos(p.get('presc_ecg_1'), p.get('exec_ecg_1'))
+        p['alvo_2'] = calcular_prazos(p.get('presc_ecg_2'), p.get('exec_ecg_2'))
+        p['alvo_3'] = calcular_prazos(p.get('presc_ecg_3'), p.get('exec_ecg_3'))
     return pacientes
 
 # ==========================================
@@ -242,8 +252,9 @@ def salvar():
     id_paciente = request.form.get('id')
     nome_pac = request.form['nome'].strip().upper()
     
+    # ADICIONAMOS O SETOR AQUI NA VARIÁVEL 'DADOS' PARA ELE SALVAR
     dados = (
-        nome_pac, request.form['nascimento'], request.form['atendimento'],
+        nome_pac, request.form['nascimento'], request.form['atendimento'], request.form.get('setor'),
         request.form.get('presc_ecg_1'), request.form.get('prescritor_ecg_1'),
         request.form.get('presc_ecg_2'), request.form.get('prescritor_ecg_2'),
         request.form.get('presc_ecg_3'), request.form.get('prescritor_ecg_3'),
@@ -255,19 +266,21 @@ def salvar():
     c = conn.cursor()
 
     if id_paciente and id_paciente != "":
+        # ATUALIZAMOS O UPDATE PARA INCLUIR O SETOR
         c.execute("""UPDATE pacientes SET 
-                  nome=?, nascimento=?, atendimento=?, 
+                  nome=?, nascimento=?, atendimento=?, setor=?,
                   presc_ecg_1=?, prescritor_ecg_1=?, presc_ecg_2=?, prescritor_ecg_2=?, 
                   presc_ecg_3=?, prescritor_ecg_3=?, presc_trop_1=?, presc_trop_2=?, presc_trop_3=?, 
                   cor_paciente=?, avaliacao=? WHERE id=?""", dados + (id_paciente,))
         conn.commit()
         registrar_log(id_paciente, "EDIÇÃO DE CADASTRO/TRIAGEM", "RECEPÇÃO/ENFERMAGEM")
     else:
+        # ATUALIZAMOS O INSERT PARA INCLUIR O SETOR E O PONTO DE INTERROGAÇÃO
         c.execute("""INSERT INTO pacientes (
-                  nome, nascimento, atendimento, presc_ecg_1, prescritor_ecg_1, 
+                  nome, nascimento, atendimento, setor, presc_ecg_1, prescritor_ecg_1, 
                   presc_ecg_2, prescritor_ecg_2, presc_ecg_3, prescritor_ecg_3, 
                   presc_trop_1, presc_trop_2, presc_trop_3, cor_paciente, avaliacao
-                  ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", dados)
+                  ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", dados)
         conn.commit()
         novo_id = c.lastrowid
         registrar_log(novo_id, f"ENTRADA NO PROTOCOLO - {request.form.get('cor_paciente').upper()}", "RECEPÇÃO/ENFERMAGEM")
@@ -280,7 +293,12 @@ def marcar_execucao():
     id_paciente = request.form['id_rota']
     coluna_hora = request.form['coluna_selecionada'] 
     profissional = request.form['profissional'].strip().upper()
-    agora = datetime.now().strftime("%H:%M")
+    
+    agora = request.form.get('horario')
+    anular = request.form.get('anular_acao')
+    
+    if anular == "sim":
+        agora = "N/A"
     
     if "laudo" in coluna_hora: coluna_prof = coluna_hora.replace('laudo', 'medico')
     elif "exec" in coluna_hora: coluna_prof = coluna_hora.replace('exec', 'executor')
@@ -293,10 +311,8 @@ def marcar_execucao():
         query = f"UPDATE pacientes SET {coluna_hora} = '{agora}', {coluna_prof} = '{profissional}' WHERE id = {id_paciente}"
         conn.execute(query)
         conn.commit()
-        
-        acao_amigavel = f"Registrou {coluna_hora.upper()} às {agora}"
+        acao_amigavel = f"Registrou {coluna_hora.upper()} ({agora})"
         registrar_log(id_paciente, acao_amigavel, profissional)
-        
     except Exception as e:
         print(f"Erro no SQL Dinâmico: {e}")
     finally:
@@ -310,8 +326,12 @@ def registrar_saida():
     tipo = request.form.get('tipo_saida')
     destino = request.form.get('destino_transferencia') 
     hora_saida = request.form.get('hora_transferencia')
+    medico = request.form.get('medico_alta')
 
-    texto_saida = f"{tipo.upper()} - {destino}" if destino else tipo.upper()
+    if destino:
+        texto_saida = f"{tipo.upper()} - {destino} (Resp: {medico.upper()})"
+    else:
+        texto_saida = f"{tipo.upper()} (Resp: {medico.upper()})"
 
     conn = sqlite3.connect('upa_eletros.db')
     c = conn.cursor()
@@ -319,8 +339,6 @@ def registrar_saida():
         c.execute("""UPDATE pacientes SET destino_trasferencia = ?, hora_trasferencia = ?, ativo = 0 WHERE id = ?""", 
                   (texto_saida, hora_saida, id_paciente))
         conn.commit()
-        
-        # AUDITORIA DO DESFECHO
         registrar_log(id_paciente, f"DESFECHO: {texto_saida}", "ADMINISTRAÇÃO")
     except sqlite3.OperationalError as e:
         print(f"Erro ao atualizar: {e}")
@@ -334,7 +352,6 @@ def imprimir_resumo(id):
     conn = sqlite3.connect('upa_eletros.db')
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
-    
     c.execute("SELECT * FROM pacientes WHERE id = ?", (id,))
     linha = c.fetchone()
     conn.close()
@@ -343,13 +360,11 @@ def imprimir_resumo(id):
         return "Paciente não encontrado", 404
 
     paciente = dict(linha)
-    
-    paciente['alvo_1'] = calcular_prazos(paciente.get('presc_ecg_1'))
-    paciente['alvo_2'] = calcular_prazos(paciente.get('presc_ecg_2'))
-    paciente['alvo_3'] = calcular_prazos(paciente.get('presc_ecg_3'))
+    paciente['alvo_1'] = calcular_prazos(paciente.get('presc_ecg_1'), paciente.get('exec_ecg_1'))
+    paciente['alvo_2'] = calcular_prazos(paciente.get('presc_ecg_2'), paciente.get('exec_ecg_2'))
+    paciente['alvo_3'] = calcular_prazos(paciente.get('presc_ecg_3'), paciente.get('exec_ecg_3'))
     
     data_impressao = datetime.now().strftime("%d/%m/%Y às %H:%M:%S")
-
     return render_template('resumo_impresso.html', p=paciente, data_impressao=data_impressao)
 
 @app.route('/remover/<int:id>')
@@ -362,16 +377,11 @@ def remover(id):
     conn.close()
     return redirect(url_for('index'))
 
-# ==========================================
-# INICIALIZAÇÃO DO SERVIDOR (PRODUÇÃO)
-# ==========================================
 if __name__ == '__main__':
     init_db()
-    
     agendador = BackgroundScheduler(daemon=True)
     agendador.add_job(fazer_backup_diario, 'cron', hour=23, minute=50)
     agendador.start()
     print("🛡️ Serviço de Backup Automático Iniciado!")
-
     print("🚀 Iniciando Servidor WSGI de Produção (Waitress) na porta 5000...")
     serve(app, host='0.0.0.0', port=5000, threads=6)

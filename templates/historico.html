@@ -6,6 +6,7 @@
     <title>Histórico e Auditoria - Painel ECG</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     
     <style>
@@ -65,6 +66,8 @@
         .border-sep { border-left: 2px solid rgba(13, 110, 253, 0.4) !important; }
         .border-sep-rota { border-left: 3px solid var(--bs-emphasis-color) !important; }
 
+        .grafico-card { height: 100%; border-radius: 12px; border: 1px solid var(--bs-border-color); background-color: var(--bs-body-bg); }
+
         @media print { .no-print { display: none !important; } }
     </style>
 </head>
@@ -90,6 +93,25 @@
 
     <div class="container-fluid px-4 pb-4">
         
+        <div class="row mb-4 no-print" id="dashboard-charts">
+            <div class="col-md-6">
+                <div class="grafico-card shadow-sm p-3">
+                    <h6 class="text-center fw-bold text-secondary mb-3"><i class="bi bi-clock-history me-2"></i>SLA: Tempo do 1º ECG</h6>
+                    <div style="height: 220px; position: relative; width: 100%; display: flex; justify-content: center;">
+                        <canvas id="graficoSLA"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="grafico-card shadow-sm p-3">
+                    <h6 class="text-center fw-bold text-secondary mb-3"><i class="bi bi-diagram-2 me-2"></i>Pacientes por Rota</h6>
+                    <div style="height: 220px; position: relative; width: 100%; display: flex; justify-content: center;">
+                        <canvas id="graficoRota"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="d-flex justify-content-between align-items-end mb-2 no-print">
             <h5 class="fw-bold mb-0 text-secondary"><i class="bi bi-funnel-fill me-2"></i>Filtros de Extração</h5>
             <span class="badge bg-primary rounded-pill px-3 py-2 shadow-sm" id="contadorRegistros">
@@ -146,8 +168,8 @@
                             <th rowspan="2" style="min-width: 100px;">Classif.</th>
                             
                             <th colspan="16" class="bg-primary bg-opacity-75 border-sep-rota text-white">1ª ROTA DE PROTOCOLO</th>
-                            <th colspan="16" class="bg-secondary bg-opacity-75 border-sep-rota text-white">2ª ROTA DE PROTOCOLO</th>
-                            <th colspan="16" class="bg-dark bg-opacity-75 border-sep-rota text-white">3ª ROTA DE PROTOCOLO</th>
+                            <th colspan="12" class="bg-secondary bg-opacity-75 border-sep-rota text-white">2ª ROTA DE PROTOCOLO</th>
+                            <th colspan="12" class="bg-dark bg-opacity-75 border-sep-rota text-white">3ª ROTA DE PROTOCOLO</th>
                         </tr>
                         <tr class="small text-muted">
                             <th class="border-sep-rota">Presc. ECG</th><th>Solicitante</th>
@@ -165,8 +187,6 @@
                             <th class="border-sep">Laudo ECG</th><th>Laudador</th>
                             <th class="border-sep text-primary">Avaliação</th><th class="text-primary">Avaliador</th>
                             <th class="border-sep text-danger">Troponina</th><th class="text-danger">Coletor</th>
-                            <th class="border-sep text-success">Medicação</th><th class="text-success">Aplicador</th>
-                            <th class="border-sep text-info">Raio-X</th><th class="text-info">Técnico RX</th>
 
                             <th class="border-sep-rota">Presc. ECG</th><th>Solicitante</th>
                             <th class="border-sep">Exec. ECG</th><th>Executor</th>
@@ -174,8 +194,6 @@
                             <th class="border-sep">Laudo ECG</th><th>Laudador</th>
                             <th class="border-sep text-primary">Avaliação</th><th class="text-primary">Avaliador</th>
                             <th class="border-sep text-danger">Troponina</th><th class="text-danger">Coletor</th>
-                            <th class="border-sep text-success">Medicação</th><th class="text-success">Aplicador</th>
-                            <th class="border-sep text-info">Raio-X</th><th class="text-info">Técnico RX</th>
                         </tr>
                     </thead>
                     <tbody id="corpoTabela" class="table-text-small text-center">
@@ -207,34 +225,30 @@
                             </td>
                             
                             <td class="align-middle">{{ p.nascimento }}</td>
-                            <td class="align-middle">{{ p.cor_paciente | replace('rota_', '') | upper or '-' }}</td>
+                            <td class="align-middle fw-bold col-rota">{{ p.cor_paciente | replace('rota_', '') | upper or 'NORMAL' }}</td>
 
                             <td class="border-sep-rota">{{ p.presc_ecg_1 or '-' }}</td><td>{{ p.prescritor_ecg_1 or '-' }}</td>
-                            <td class="border-sep">{{ p.exec_ecg_1 or '-' }}</td><td>{{ p.executor_ecg_1 or '-' }}</td>
+                            <td class="border-sep cell-metric ecg-1" data-alvo="{{ p.alvo_1.ecg or '' }}">{{ p.exec_ecg_1 or '-' }}</td><td>{{ p.executor_ecg_1 or '-' }}</td>
                             <td class="border-sep">{{ p.vis_crm_1 or '-' }}</td><td>{{ p.visualizador_crm_1 or '-' }}</td>
                             <td class="border-sep text-truncate" style="max-width: 120px;" title="{{ p.laudo_ecg_1 }}">{{ p.laudo_ecg_1 or '-' }}</td><td>{{ p.medico_ecg_1 or '-' }}</td>
-                            <td class="border-sep fw-bold text-primary">{{ p.avalia_rota_1 or '-' }}</td><td>-</td>
-                            <td class="border-sep fw-bold text-danger">{{ p.exec_trop_1 or '-' }}</td><td>{{ p.executor_trop_1 or '-' }}</td>
-                            <td class="border-sep fw-bold text-success">{{ p.exec_med_1 or '-' }}</td><td>{{ p.executor_med_1 or '-' }}</td>
-                            <td class="border-sep fw-bold text-info">{{ p.exec_rx_1 or '-' }}</td><td>{{ p.executor_rx_1 or '-' }}</td>
+                            <td class="border-sep fw-bold text-primary cell-metric" data-alvo="{{ p.alvo_1.aval or '' }}">{{ p.avalia_rota_1 or '-' }}</td><td>-</td>
+                            <td class="border-sep fw-bold text-danger cell-metric" data-alvo="{{ p.alvo_1.tropo or '' }}">{{ p.exec_trop_1 or '-' }}</td><td>{{ p.executor_trop_1 or '-' }}</td>
+                            <td class="border-sep fw-bold text-success cell-metric" data-alvo="{{ p.alvo_1.med or '' }}">{{ p.exec_med_1 or '-' }}</td><td>{{ p.executor_med_1 or '-' }}</td>
+                            <td class="border-sep fw-bold text-info cell-metric" data-alvo="{{ p.alvo_1.rx or '' }}">{{ p.exec_rx_1 or '-' }}</td><td>{{ p.executor_rx_1 or '-' }}</td>
 
                             <td class="border-sep-rota">{{ p.presc_ecg_2 or '-' }}</td><td>{{ p.prescritor_ecg_2 or '-' }}</td>
-                            <td class="border-sep">{{ p.exec_ecg_2 or '-' }}</td><td>{{ p.executor_ecg_2 or '-' }}</td>
+                            <td class="border-sep cell-metric" data-alvo="{{ p.alvo_2.ecg or '' }}">{{ p.exec_ecg_2 or '-' }}</td><td>{{ p.executor_ecg_2 or '-' }}</td>
                             <td class="border-sep">{{ p.vis_crm_2 or '-' }}</td><td>{{ p.visualizador_crm_2 or '-' }}</td>
                             <td class="border-sep text-truncate" style="max-width: 120px;" title="{{ p.laudo_ecg_2 }}">{{ p.laudo_ecg_2 or '-' }}</td><td>{{ p.medico_ecg_2 or '-' }}</td>
-                            <td class="border-sep fw-bold text-primary">{{ p.avalia_rota_2 or '-' }}</td><td>-</td>
-                            <td class="border-sep fw-bold text-danger">{{ p.exec_trop_2 or '-' }}</td><td>{{ p.executor_trop_2 or '-' }}</td>
-                            <td class="border-sep fw-bold text-success">{{ p.exec_med_2 or '-' }}</td><td>{{ p.executor_med_2 or '-' }}</td>
-                            <td class="border-sep fw-bold text-info">{{ p.exec_rx_2 or '-' }}</td><td>{{ p.executor_rx_2 or '-' }}</td>
+                            <td class="border-sep fw-bold text-primary cell-metric" data-alvo="{{ p.alvo_2.aval or '' }}">{{ p.avalia_rota_2 or '-' }}</td><td>-</td>
+                            <td class="border-sep fw-bold text-danger cell-metric" data-alvo="{{ p.alvo_2.tropo or '' }}">{{ p.exec_trop_2 or '-' }}</td><td>{{ p.executor_trop_2 or '-' }}</td>
 
                             <td class="border-sep-rota">{{ p.presc_ecg_3 or '-' }}</td><td>{{ p.prescritor_ecg_3 or '-' }}</td>
-                            <td class="border-sep">{{ p.exec_ecg_3 or '-' }}</td><td>{{ p.executor_ecg_3 or '-' }}</td>
+                            <td class="border-sep cell-metric" data-alvo="{{ p.alvo_3.ecg or '' }}">{{ p.exec_ecg_3 or '-' }}</td><td>{{ p.executor_ecg_3 or '-' }}</td>
                             <td class="border-sep">{{ p.vis_crm_3 or '-' }}</td><td>{{ p.visualizador_crm_3 or '-' }}</td>
                             <td class="border-sep text-truncate" style="max-width: 120px;" title="{{ p.laudo_ecg_3 }}">{{ p.laudo_ecg_3 or '-' }}</td><td>{{ p.medico_ecg_3 or '-' }}</td>
-                            <td class="border-sep fw-bold text-primary">{{ p.avalia_rota_3 or '-' }}</td><td>-</td>
-                            <td class="border-sep fw-bold text-danger">{{ p.exec_trop_3 or '-' }}</td><td>{{ p.executor_trop_3 or '-' }}</td>
-                            <td class="border-sep fw-bold text-success">{{ p.exec_med_3 or '-' }}</td><td>{{ p.executor_med_3 or '-' }}</td>
-                            <td class="border-sep fw-bold text-info">{{ p.exec_rx_3 or '-' }}</td><td>{{ p.executor_rx_3 or '-' }}</td>
+                            <td class="border-sep fw-bold text-primary cell-metric" data-alvo="{{ p.alvo_3.aval or '' }}">{{ p.avalia_rota_3 or '-' }}</td><td>-</td>
+                            <td class="border-sep fw-bold text-danger cell-metric" data-alvo="{{ p.alvo_3.tropo or '' }}">{{ p.exec_trop_3 or '-' }}</td><td>{{ p.executor_trop_3 or '-' }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -251,6 +265,106 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // --- FUNÇÕES DE CÁLCULO DE SLA PARA EXCEL E GRÁFICOS --- //
+        function calcularSLAeGraficos() {
+            let noPrazoECG1 = 0;
+            let atrasadoECG1 = 0;
+            let pendenteECG1 = 0;
+            
+            let rotasCount = { 'VERMELHA': 0, 'AMARELA': 0, 'NORMAL': 0 };
+
+            // 1. Processar Células de Métrica (Compara Executado com o Alvo)
+            document.querySelectorAll('.cell-metric').forEach(td => {
+                let exec = td.innerText.trim();
+                let alvo = td.getAttribute('data-alvo');
+                
+                // Se a célula pertence ao ECG da 1ª Rota, atualizamos as métricas do gráfico
+                let isEcg1 = td.classList.contains('ecg-1');
+
+                if (exec === '-' || exec === '') {
+                    if (isEcg1) pendenteECG1++;
+                    return;
+                }
+                
+                if (alvo && alvo !== 'None' && alvo !== '') {
+                    let minAlvo = parseInt(alvo.split(':')[0]) * 60 + parseInt(alvo.split(':')[1]);
+                    let minExec = parseInt(exec.split(':')[0]) * 60 + parseInt(exec.split(':')[1]);
+                    
+                    // Tratamento virada de meia noite
+                    let diff = minExec - minAlvo;
+                    if(diff < -1000) diff += 1440;
+                    if(diff > 1000) diff -= 1440;
+                    
+                    if(diff <= 0) {
+                        // Injeta o texto pra o Excel pegar automaticamente
+                        td.innerHTML = `${exec} <span class="badge bg-success bg-opacity-25 text-success border border-success ms-1" style="font-size: 0.6rem;">No Prazo</span>`;
+                        if (isEcg1) noPrazoECG1++;
+                    } else {
+                        // Injeta texto de atrasado
+                        td.innerHTML = `${exec} <span class="badge bg-danger bg-opacity-25 text-danger border border-danger ms-1" style="font-size: 0.6rem;">Atrasado</span>`;
+                        if (isEcg1) atrasadoECG1++;
+                    }
+                }
+            });
+
+            // 2. Processar contagem de Rotas
+            document.querySelectorAll('.col-rota').forEach(td => {
+                let r = td.innerText.trim();
+                if (rotasCount[r] !== undefined) rotasCount[r]++;
+            });
+
+            // Renderizar Gráficos Chart.js
+            renderizarGraficos(noPrazoECG1, atrasadoECG1, pendenteECG1, rotasCount);
+        }
+
+        let chartSLA, chartRota; // Variáveis globais para destruir e recriar se necessário
+
+        function renderizarGraficos(noPrazo, atrasado, pendente, rotasCount) {
+            const ctxSLA = document.getElementById('graficoSLA').getContext('2d');
+            const ctxRota = document.getElementById('graficoRota').getContext('2d');
+
+            if(chartSLA) chartSLA.destroy();
+            if(chartRota) chartRota.destroy();
+
+            // GRÁFICO 1: SLA DO ECG
+            chartSLA = new Chart(ctxSLA, {
+                type: 'doughnut',
+                data: {
+                    labels: ['No Prazo', 'Atrasado', 'Pendente'],
+                    datasets: [{
+                        data: [noPrazo, atrasado, pendente],
+                        backgroundColor: ['#198754', '#dc3545', '#adb5bd'],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'right' } }
+                }
+            });
+
+            // GRÁFICO 2: Distribuição de Rotas
+            chartRota = new Chart(ctxRota, {
+                type: 'pie',
+                data: {
+                    labels: ['Vermelha', 'Amarela', 'Eletivo (Normal)'],
+                    datasets: [{
+                        data: [rotasCount['VERMELHA'], rotasCount['AMARELA'], rotasCount['NORMAL']],
+                        backgroundColor: ['#dc3545', '#ffc107', '#6c757d'],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'right' } }
+                }
+            });
+        }
+
+
+        // --- FUNÇÕES DE INTERFACE (Tema, Filtro e Excel) --- //
         function initTheme() {
             const savedTheme = localStorage.getItem('theme') || 'light';
             document.documentElement.setAttribute('data-bs-theme', savedTheme);
@@ -263,14 +377,20 @@
             document.documentElement.setAttribute('data-bs-theme', newTheme);
             localStorage.setItem('theme', newTheme);
             atualizarIconeTema(newTheme);
+            
+            // Re-renderiza o gráfico para adaptar fonte se necessário (opcional)
+            Chart.defaults.color = newTheme === 'dark' ? '#adb5bd' : '#6c757d';
+            calcularSLAeGraficos(); 
         }
 
         function atualizarIconeTema(theme) {
             const btn = document.getElementById('btnDarkMode');
             if(theme === 'dark') {
                 btn.innerHTML = '<i class="bi bi-sun-fill text-warning"></i>';
+                Chart.defaults.color = '#adb5bd';
             } else {
                 btn.innerHTML = '<i class="bi bi-moon-stars-fill"></i>';
+                Chart.defaults.color = '#6c757d';
             }
         }
 
@@ -333,6 +453,7 @@
             const table = document.getElementById("tabela-historico");
             const cloneTable = table.cloneNode(true);
             
+            // Remover coluna do ícone PDF
             for (let i = 0; i < cloneTable.rows.length; i++) {
                 if(cloneTable.rows[i].cells.length > 0) {
                     cloneTable.rows[i].deleteCell(0);
@@ -346,6 +467,7 @@
 
         document.addEventListener("DOMContentLoaded", () => {
             initTheme();
+            calcularSLAeGraficos(); // Executa o cálculo de tempo e gera os gráficos
             filtrarTabela();
         });
     </script>
