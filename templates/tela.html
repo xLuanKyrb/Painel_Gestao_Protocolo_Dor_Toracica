@@ -2,7 +2,6 @@
 <html lang="pt-br" data-bs-theme="light">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="refresh" content="60">
     <title>Visão Geral - Painel ECG UPA</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
@@ -18,19 +17,18 @@
             border-radius: 6px; 
             background-color: var(--bs-body-bg);
             border: 1px solid var(--bs-border-color);
-            height: 100%; /* Faz os cards lado a lado terem a mesma altura */
         }
         
-        .card-header-custom { padding: 0.15rem 0.4rem; font-size: 0.7rem; background-color: var(--bs-tertiary-bg); }
+        .card-header-custom { padding: 0.15rem 0.4rem; font-size: 0.75rem; background-color: var(--bs-tertiary-bg); }
         
-        /* Ajuste nas fontes para caberem lado a lado */
-        .time-label { font-size: 0.55rem; text-transform: uppercase; letter-spacing: 0.5px; }
-        .time-value { font-size: 1rem; font-weight: 900; line-height: 1; margin-top: 3px; }
+        /* Ajuste radical nas fontes para a TV */
+        .time-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.5px; }
+        .time-value { font-size: 1.6rem !important; font-weight: 900; line-height: 1; margin-top: 4px; }
 
-        /* Alerta de Atraso (Piscar Vermelho) */
+        /* Alerta de Atraso */
         @keyframes piscar-atraso {
             0% { box-shadow: 0 0 0px rgba(220,53,69,0); border-color: var(--bs-border-color); }
-            50% { box-shadow: 0 0 8px rgba(220,53,69,0.8); border-color: #dc3545; background-color: rgba(220,53,69,0.05); }
+            50% { box-shadow: 0 0 12px rgba(220,53,69,0.9); border-color: #dc3545; background-color: rgba(220,53,69,0.08); }
             100% { box-shadow: 0 0 0px rgba(220,53,69,0); border-color: var(--bs-border-color); }
         }
         .atrasado { 
@@ -38,13 +36,12 @@
             border-color: #dc3545 !important;
         }
         
-        .progress-micro { height: 6px; background-color: var(--bs-secondary-bg); border-radius: 3px; overflow: hidden; }
+        .progress-micro { height: 8px; background-color: var(--bs-secondary-bg); border-radius: 4px; overflow: hidden; }
         
-        .rota-concluida {
-            opacity: 0.4;
-            filter: grayscale(80%);
-            transition: all 0.5s ease;
-        }
+        .rota-concluida { opacity: 0.35; filter: grayscale(90%); transition: all 0.5s ease; }
+
+        /* Removemos os espaços extras das células para a TV */
+        .table td { padding: 0.25rem !important; vertical-align: top; }
     </style>
 </head>
 <body class="bg-light text-body">
@@ -52,8 +49,8 @@
     <header class="mb-2">
         <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm py-1">
             <div class="container-fluid">
-                <a class="navbar-brand fs-5" href="/">
-                    <i class="bi bi-tv me-2 text-primary"></i>Monitoramento de TV
+                <a class="navbar-brand fs-5 fw-bold" href="/">
+                    <i class="bi bi-tv me-2 text-primary"></i>Monitor de Protocolo
                 </a>
                 <div class="d-flex align-items-center gap-2">
                     <button class="btn btn-outline-light btn-sm" id="btnDarkMode" onclick="toggleDarkMode()" title="Alternar Modo Noturno">
@@ -68,11 +65,10 @@
 <div class="container-fluid px-2">
     <div class="row">
         <div class="col-12">
-            
             <div class="card shadow-sm border-0 bg-body">
-                <div class="table-responsive" id="tv-container" style="height: calc(100vh - 80px); overflow: hidden;">
+                <div class="table-responsive" id="tv-container" style="height: calc(100vh - 70px); overflow: hidden;">
                     <table class="table table-bordered mb-0 align-middle" id="tabela-principal">
-                        <thead class="table-dark text-center small">
+                        <thead class="table-dark text-center align-middle">
                             <tr>
                                 <th style="width: 22%">Paciente & Identificação</th>
                                 <th style="width: 26%">1ª Rota</th>
@@ -82,288 +78,220 @@
                         </thead>
                         <tbody class="table-text-small" id="tabela-pacientes">
                             {% for p in pacientes %}
+                                
+                            {% if p.cor_paciente != 'normal' %}
+                            
                             <tr class="paciente-row {{ p.cor_classe }}" data-rota-pac="{{ p.cor_paciente }}">
                                 
-                                <td class="ps-3 align-top border-end bg-body text-center">
-                                    
-                                    <div class="fw-bold text-uppercase nome-paciente mt-2" style="font-size: 1.25rem; color: var(--bs-emphasis-color);" data-nome-completo="{{ p.nome }}">
+                                <td class="ps-2 align-top border-end bg-body text-center">
+                                    <div class="fw-bold text-uppercase nome-paciente mt-3" style="font-size: 1.4rem; color: var(--bs-emphasis-color); line-height: 1.1;" data-nome-completo="{{ p.nome }}">
                                         {{ p.nome }}
                                     </div>
                                     
                                     <div class="mt-2 mb-3">
-                                        <span class="badge bg-primary px-3 py-2 fs-5 shadow-sm rounded-pill">
+                                        <span class="badge bg-primary px-3 py-1 fs-6 shadow-sm rounded-pill">
                                             <i class="bi bi-calendar-date me-1"></i> {{p.nascimento}}
                                         </span>
                                     </div>
 
-                                    <div class="progress-micro mt-1 mb-2 mx-auto" style="width: 80%;">
+                                    <div class="progress-micro mt-1 mb-2 mx-auto" style="width: 85%;">
                                         <div class="progress-bar bg-primary barra-progresso" style="width: 0%; transition: width 1s ease-in-out;"></div>
                                     </div>
 
-                                    <div class="text-secondary small mb-2">
-                                        <strong>ATEND:</strong> {{p.atendimento}}
+                                    <div class="text-secondary small mb-2 mt-3">
+                                        <div class="fs-6 mb-1"><strong>ATEND:</strong> {{p.atendimento}}</div>
+                                        <div class="small text-muted fst-italic" style="font-size: 0.9rem;">{{ p.avaliacao }}</div>
                                         
-                                        <div class="small mt-2 text-muted" style="font-size: 0.85rem;"><em>{{ p.avaliacao }}</em></div>
-                                        
-                                        <div class="mt-2">
+                                        <div class="mt-3">
                                             {% if p.cor_paciente == 'rota_amarelo' %} 
-                                                <span class="badge bg-warning text-dark border border-dark fs-6 shadow-sm">ROTA AMARELA</span>
+                                                <span class="badge bg-warning text-dark border border-dark fs-5 shadow-sm px-3 py-2">ROTA AMARELA</span>
                                             {% elif p.cor_paciente == 'rota_vermelho' %} 
-                                                <span class="badge bg-danger border border-white fs-6 shadow-sm">ROTA VERMELHA</span>
-                                            {% else %} 
-                                                <span class="badge bg-secondary text-light border fs-6 shadow-sm">NORMAL</span>
+                                                <span class="badge bg-danger border border-white fs-5 shadow-sm px-3 py-2">ROTA VERMELHA</span>
                                             {% endif %}
                                         </div>
                                     </div>
                                 </td>
                                 
-                                <td class="p-2 align-top bg-body-tertiary celula-rota">
-                                    
+                                <td class="p-1 align-top bg-body-tertiary celula-rota">
                                     <div class="proc-card border-secondary mb-1">
-                                        <div class="card-header-custom text-secondary fw-bold">
+                                        <div class="card-header-custom text-secondary fw-bold text-center">
                                             <i class="bi bi-heart-pulse-fill me-1"></i> ECG 1
                                         </div>
                                         <div class="d-flex text-center p-1">
                                             <div class="col-6 border-end">
                                                 <div class="time-label text-secondary">Solicitado</div>
-                                                <div class="time-value">{{ p.presc_ecg_1 or '--:--' }}</div>
+                                                <div class="time-value" style="font-size: 1.3rem !important;">{{ p.presc_ecg_1 or '--:--' }}</div>
                                             </div>
                                             <div class="col-6">
                                                 {% if p.exec_ecg_1 %}
                                                     <div class="time-label text-success">Realizado</div>
-                                                    <div class="time-value text-success realizado-time">{{ p.exec_ecg_1 }}</div>
+                                                    <div class="time-value text-success realizado-time" style="font-size: 1.3rem !important;">{{ p.exec_ecg_1 }}</div>
                                                 {% else %}
                                                     <div class="time-label text-danger">Alvo</div>
-                                                    <div class="time-value text-danger alvo-time">{{ p.alvo_1.ecg or '--:--' }}</div>
+                                                    <div class="time-value text-danger alvo-time" style="font-size: 1.3rem !important;">{{ p.alvo_1.ecg or '--:--' }}</div>
                                                 {% endif %}
                                             </div>
                                         </div>
                                         {% if p.laudo_ecg_1 %}
-                                        <div class="card-header-custom bg-warning bg-opacity-25 text-center border-top text-truncate" title="{{ p.laudo_ecg_1 }}">
-                                            L: <strong>{{ p.laudo_ecg_1 }}</strong>
+                                        <div class="card-header-custom bg-warning bg-opacity-25 text-center border-top text-truncate fw-bold">
+                                            Laudo: {{ p.laudo_ecg_1 }}
                                         </div>
                                         {% endif %}
                                     </div>
 
-                                    {% if p.cor_paciente != 'normal' %}
                                     <div class="row g-1">
                                         <div class="col-6">
-                                            <div class="proc-card border-primary">
+                                            <div class="proc-card border-primary d-flex flex-column h-100">
                                                 <div class="card-header-custom text-primary fw-bold text-center"><i class="bi bi-clipboard2-pulse"></i> AVAL.</div>
-                                                <div class="d-flex text-center p-1">
-                                                    <div class="col-6 border-end">
-                                                        <div class="time-label text-secondary">Alvo</div>
-                                                        <div class="time-value text-danger alvo-time">{{ p.alvo_1.aval or '--:--' }}</div>
-                                                    </div>
-                                                    <div class="col-6">
-                                                        <div class="time-label {% if p.avalia_rota_1 %}text-primary{% else %}text-secondary{% endif %}">Real.</div>
-                                                        <div class="time-value {% if p.avalia_rota_1 %}text-primary{% else %}text-secondary opacity-50{% endif %} realizado-time">{{ p.avalia_rota_1 or '--:--' }}</div>
-                                                    </div>
+                                                <div class="p-1 text-center d-flex flex-column justify-content-center flex-grow-1">
+                                                    <div class="time-label text-secondary">Alvo: <strong class="text-danger alvo-time">{{ p.alvo_1.aval or '--:--' }}</strong></div>
+                                                    <div class="time-value {% if p.avalia_rota_1 %}text-primary{% else %}text-secondary opacity-25{% endif %} realizado-time">{{ p.avalia_rota_1 or '--:--' }}</div>
                                                 </div>
                                             </div>
                                         </div>
                                         <div class="col-6">
-                                            <div class="proc-card border-danger">
+                                            <div class="proc-card border-danger d-flex flex-column h-100">
                                                 <div class="card-header-custom text-danger fw-bold text-center"><i class="bi bi-droplet-fill"></i> TROPO.</div>
-                                                <div class="d-flex text-center p-1">
-                                                    <div class="col-6 border-end">
-                                                        <div class="time-label text-secondary">Alvo</div>
-                                                        <div class="time-value text-danger alvo-time">{{ p.alvo_1.tropo or '--:--' }}</div>
-                                                    </div>
-                                                    <div class="col-6">
-                                                        <div class="time-label {% if p.exec_trop_1 %}text-success{% else %}text-secondary{% endif %}">Real.</div>
-                                                        <div class="time-value {% if p.exec_trop_1 %}text-success{% else %}text-secondary opacity-50{% endif %} realizado-time">{{ p.exec_trop_1 or '--:--' }}</div>
-                                                    </div>
+                                                <div class="p-1 text-center d-flex flex-column justify-content-center flex-grow-1">
+                                                    <div class="time-label text-secondary">Alvo: <strong class="text-danger alvo-time">{{ p.alvo_1.tropo or '--:--' }}</strong></div>
+                                                    <div class="time-value {% if p.exec_trop_1 %}text-success{% else %}text-secondary opacity-25{% endif %} realizado-time">{{ p.exec_trop_1 or '--:--' }}</div>
                                                 </div>
                                             </div>
                                         </div>
+                                    </div>
+                                    
+                                    <div class="row g-1 mt-1">
                                         <div class="col-6">
-                                            <div class="proc-card border-success">
+                                            <div class="proc-card border-success d-flex flex-column h-100">
                                                 <div class="card-header-custom text-success fw-bold text-center"><i class="bi bi-capsule"></i> MED.</div>
-                                                <div class="d-flex text-center p-1">
-                                                    <div class="col-6 border-end">
-                                                        <div class="time-label text-secondary">Alvo</div>
-                                                        <div class="time-value text-danger alvo-time">{{ p.alvo_1.med or '--:--' }}</div>
-                                                    </div>
-                                                    <div class="col-6">
-                                                        <div class="time-label {% if p.exec_med_1 %}text-success{% else %}text-secondary{% endif %}">Real.</div>
-                                                        <div class="time-value {% if p.exec_med_1 %}text-success{% else %}text-secondary opacity-50{% endif %} realizado-time">{{ p.exec_med_1 or '--:--' }}</div>
-                                                    </div>
+                                                <div class="p-1 text-center d-flex flex-column justify-content-center flex-grow-1">
+                                                    <div class="time-label text-secondary">Alvo: <strong class="text-danger alvo-time">{{ p.alvo_1.med or '--:--' }}</strong></div>
+                                                    <div class="time-value {% if p.exec_med_1 %}text-success{% else %}text-secondary opacity-25{% endif %} realizado-time">{{ p.exec_med_1 or '--:--' }}</div>
                                                 </div>
                                             </div>
                                         </div>
                                         <div class="col-6">
-                                            <div class="proc-card border-info">
+                                            <div class="proc-card border-info d-flex flex-column h-100">
                                                 <div class="card-header-custom text-info fw-bold text-center"><i class="bi bi-file-medical"></i> RX</div>
-                                                <div class="d-flex text-center p-1">
-                                                    <div class="col-6 border-end">
-                                                        <div class="time-label text-secondary">Alvo</div>
-                                                        <div class="time-value text-danger alvo-time">{{ p.alvo_1.rx or '--:--' }}</div>
-                                                    </div>
-                                                    <div class="col-6">
-                                                        <div class="time-label {% if p.exec_rx_1 %}text-success{% else %}text-secondary{% endif %}">Real.</div>
-                                                        <div class="time-value {% if p.exec_rx_1 %}text-success{% else %}text-secondary opacity-50{% endif %} realizado-time">{{ p.exec_rx_1 or '--:--' }}</div>
-                                                    </div>
+                                                <div class="p-1 text-center d-flex flex-column justify-content-center flex-grow-1">
+                                                    <div class="time-label text-secondary">Alvo: <strong class="text-danger alvo-time">{{ p.alvo_1.rx or '--:--' }}</strong></div>
+                                                    <div class="time-value {% if p.exec_rx_1 %}text-success{% else %}text-secondary opacity-25{% endif %} realizado-time">{{ p.exec_rx_1 or '--:--' }}</div>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
-                                    {% else %}
-                                    <div class="text-center mt-4 text-secondary" style="opacity: 0.6;">
-                                        <i class="bi bi-info-circle fs-3"></i><br>
-                                        <strong>Eletivo: Apenas ECG</strong>
-                                    </div>
-                                    {% endif %}
                                 </td>
                                 
-                                {% if p.cor_paciente != 'normal' %}
-                                <td class="p-2 align-top border-start bg-body celula-rota">
-                                    
+                                <td class="p-1 align-top border-start bg-body celula-rota">
                                     {% if p.prox_ecg_2 %}
-                                    <div class="alert alert-info py-1 px-2 mb-1 text-center shadow-sm" style="font-size: 0.7rem; border: 1px dashed #0dcaf0;">
-                                        <i class="bi bi-clock-history me-1"></i> Próx. Sugerido: <strong>{{ p.prox_ecg_2 }}</strong>
+                                    <div class="alert alert-info py-1 px-2 mb-1 text-center shadow-sm fw-bold" style="font-size: 0.8rem; border: 1px dashed #0dcaf0;">
+                                        <i class="bi bi-clock-history me-1"></i> Próx. Sugerido: {{ p.prox_ecg_2 }}
                                     </div>
                                     {% endif %}
 
                                     <div class="proc-card border-secondary mb-1">
-                                        <div class="card-header-custom text-secondary fw-bold">
+                                        <div class="card-header-custom text-secondary fw-bold text-center">
                                             <i class="bi bi-heart-pulse-fill me-1"></i> ECG 2
                                         </div>
                                         <div class="d-flex text-center p-1">
                                             <div class="col-6 border-end">
                                                 <div class="time-label text-secondary">Solicitado</div>
-                                                <div class="time-value">{{ p.presc_ecg_2 or '--:--' }}</div>
+                                                <div class="time-value" style="font-size: 1.3rem !important;">{{ p.presc_ecg_2 or '--:--' }}</div>
                                             </div>
                                             <div class="col-6">
                                                 {% if p.exec_ecg_2 %}
                                                     <div class="time-label text-success">Realizado</div>
-                                                    <div class="time-value text-success realizado-time">{{ p.exec_ecg_2 }}</div>
+                                                    <div class="time-value text-success realizado-time" style="font-size: 1.3rem !important;">{{ p.exec_ecg_2 }}</div>
                                                 {% else %}
                                                     <div class="time-label text-danger">Alvo</div>
-                                                    <div class="time-value text-danger alvo-time">{{ p.alvo_2.ecg or '--:--' }}</div>
+                                                    <div class="time-value text-danger alvo-time" style="font-size: 1.3rem !important;">{{ p.alvo_2.ecg or '--:--' }}</div>
                                                 {% endif %}
                                             </div>
                                         </div>
                                         {% if p.laudo_ecg_2 %}
-                                        <div class="card-header-custom bg-warning bg-opacity-25 text-center border-top text-truncate" title="{{ p.laudo_ecg_2 }}">
-                                            L: <strong>{{ p.laudo_ecg_2 }}</strong>
-                                        </div>
+                                        <div class="card-header-custom bg-warning bg-opacity-25 text-center border-top text-truncate fw-bold">Laudo: {{ p.laudo_ecg_2 }}</div>
                                         {% endif %}
                                     </div>
 
                                     <div class="row g-1">
                                         <div class="col-6">
-                                            <div class="proc-card border-primary">
+                                            <div class="proc-card border-primary d-flex flex-column h-100">
                                                 <div class="card-header-custom text-primary fw-bold text-center"><i class="bi bi-clipboard2-pulse"></i> AVAL.</div>
-                                                <div class="d-flex text-center p-1">
-                                                    <div class="col-6 border-end">
-                                                        <div class="time-label text-secondary">Alvo</div>
-                                                        <div class="time-value text-danger alvo-time">{{ p.alvo_2.aval or '--:--' }}</div>
-                                                    </div>
-                                                    <div class="col-6">
-                                                        <div class="time-label {% if p.avalia_rota_2 %}text-primary{% else %}text-secondary{% endif %}">Real.</div>
-                                                        <div class="time-value {% if p.avalia_rota_2 %}text-primary{% else %}text-secondary opacity-50{% endif %} realizado-time">{{ p.avalia_rota_2 or '--:--' }}</div>
-                                                    </div>
+                                                <div class="p-1 text-center d-flex flex-column justify-content-center flex-grow-1">
+                                                    <div class="time-label text-secondary">Alvo: <strong class="text-danger alvo-time">{{ p.alvo_2.aval or '--:--' }}</strong></div>
+                                                    <div class="time-value {% if p.avalia_rota_2 %}text-primary{% else %}text-secondary opacity-25{% endif %} realizado-time">{{ p.avalia_rota_2 or '--:--' }}</div>
                                                 </div>
                                             </div>
                                         </div>
                                         <div class="col-6">
-                                            <div class="proc-card border-danger">
+                                            <div class="proc-card border-danger d-flex flex-column h-100">
                                                 <div class="card-header-custom text-danger fw-bold text-center"><i class="bi bi-droplet-fill"></i> TROPO.</div>
-                                                <div class="d-flex text-center p-1">
-                                                    <div class="col-6 border-end">
-                                                        <div class="time-label text-secondary">Alvo</div>
-                                                        <div class="time-value text-danger alvo-time">{{ p.alvo_2.tropo or '--:--' }}</div>
-                                                    </div>
-                                                    <div class="col-6">
-                                                        <div class="time-label {% if p.exec_trop_2 %}text-success{% else %}text-secondary{% endif %}">Real.</div>
-                                                        <div class="time-value {% if p.exec_trop_2 %}text-success{% else %}text-secondary opacity-50{% endif %} realizado-time">{{ p.exec_trop_2 or '--:--' }}</div>
-                                                    </div>
+                                                <div class="p-1 text-center d-flex flex-column justify-content-center flex-grow-1">
+                                                    <div class="time-label text-secondary">Alvo: <strong class="text-danger alvo-time">{{ p.alvo_2.tropo or '--:--' }}</strong></div>
+                                                    <div class="time-value {% if p.exec_trop_2 %}text-success{% else %}text-secondary opacity-25{% endif %} realizado-time">{{ p.exec_trop_2 or '--:--' }}</div>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
                                 </td>
-                                {% else %}
-                                <td class="p-2 align-top border-start bg-body-secondary text-center" style="opacity: 0.4;">
-                                    <div class="mt-5"><i class="bi bi-slash-circle fs-2 text-secondary"></i><br>Não se aplica</div>
-                                </td>
-                                {% endif %}
 
-                                {% if p.cor_paciente != 'normal' %}
-                                <td class="p-2 align-top border-start bg-body-tertiary celula-rota">
-                                    
-                                    {% if p.prox_ecg_2 %}
-                                    <div class="alert alert-info py-1 px-2 mb-1 text-center shadow-sm" style="font-size: 0.7rem; border: 1px dashed #0dcaf0;">
-                                        <i class="bi bi-clock-history me-1"></i> Próx. Sugerido: <strong>{{ p.prox_ecg_2 }}</strong>
+                                <td class="p-1 align-top border-start bg-body-tertiary celula-rota">
+                                    {% if p.prox_ecg_3 %}
+                                    <div class="alert alert-info py-1 px-2 mb-1 text-center shadow-sm fw-bold" style="font-size: 0.8rem; border: 1px dashed #0dcaf0;">
+                                        <i class="bi bi-clock-history me-1"></i> Próx. Sugerido: {{ p.prox_ecg_3 }}
                                     </div>
                                     {% endif %}
 
                                     <div class="proc-card border-secondary mb-1">
-                                        <div class="card-header-custom text-secondary fw-bold">
+                                        <div class="card-header-custom text-secondary fw-bold text-center">
                                             <i class="bi bi-heart-pulse-fill me-1"></i> ECG 3
                                         </div>
                                         <div class="d-flex text-center p-1">
                                             <div class="col-6 border-end">
                                                 <div class="time-label text-secondary">Solicitado</div>
-                                                <div class="time-value">{{ p.presc_ecg_3 or '--:--' }}</div>
+                                                <div class="time-value" style="font-size: 1.3rem !important;">{{ p.presc_ecg_3 or '--:--' }}</div>
                                             </div>
                                             <div class="col-6">
                                                 {% if p.exec_ecg_3 %}
                                                     <div class="time-label text-success">Realizado</div>
-                                                    <div class="time-value text-success realizado-time">{{ p.exec_ecg_3 }}</div>
+                                                    <div class="time-value text-success realizado-time" style="font-size: 1.3rem !important;">{{ p.exec_ecg_3 }}</div>
                                                 {% else %}
                                                     <div class="time-label text-danger">Alvo</div>
-                                                    <div class="time-value text-danger alvo-time">{{ p.alvo_3.ecg or '--:--' }}</div>
+                                                    <div class="time-value text-danger alvo-time" style="font-size: 1.3rem !important;">{{ p.alvo_3.ecg or '--:--' }}</div>
                                                 {% endif %}
                                             </div>
                                         </div>
                                         {% if p.laudo_ecg_3 %}
-                                        <div class="card-header-custom bg-warning bg-opacity-25 text-center border-top text-truncate" title="{{ p.laudo_ecg_3 }}">
-                                            L: <strong>{{ p.laudo_ecg_3 }}</strong>
-                                        </div>
+                                        <div class="card-header-custom bg-warning bg-opacity-25 text-center border-top text-truncate fw-bold">Laudo: {{ p.laudo_ecg_3 }}</div>
                                         {% endif %}
                                     </div>
 
                                     <div class="row g-1">
                                         <div class="col-6">
-                                            <div class="proc-card border-primary">
+                                            <div class="proc-card border-primary d-flex flex-column h-100">
                                                 <div class="card-header-custom text-primary fw-bold text-center"><i class="bi bi-clipboard2-pulse"></i> AVAL.</div>
-                                                <div class="d-flex text-center p-1">
-                                                    <div class="col-6 border-end">
-                                                        <div class="time-label text-secondary">Alvo</div>
-                                                        <div class="time-value text-danger alvo-time">{{ p.alvo_3.aval or '--:--' }}</div>
-                                                    </div>
-                                                    <div class="col-6">
-                                                        <div class="time-label {% if p.avalia_rota_3 %}text-primary{% else %}text-secondary{% endif %}">Real.</div>
-                                                        <div class="time-value {% if p.avalia_rota_3 %}text-primary{% else %}text-secondary opacity-50{% endif %} realizado-time">{{ p.avalia_rota_3 or '--:--' }}</div>
-                                                    </div>
+                                                <div class="p-1 text-center d-flex flex-column justify-content-center flex-grow-1">
+                                                    <div class="time-label text-secondary">Alvo: <strong class="text-danger alvo-time">{{ p.alvo_3.aval or '--:--' }}</strong></div>
+                                                    <div class="time-value {% if p.avalia_rota_3 %}text-primary{% else %}text-secondary opacity-25{% endif %} realizado-time">{{ p.avalia_rota_3 or '--:--' }}</div>
                                                 </div>
                                             </div>
                                         </div>
                                         <div class="col-6">
-                                            <div class="proc-card border-danger">
+                                            <div class="proc-card border-danger d-flex flex-column h-100">
                                                 <div class="card-header-custom text-danger fw-bold text-center"><i class="bi bi-droplet-fill"></i> TROPO.</div>
-                                                <div class="d-flex text-center p-1">
-                                                    <div class="col-6 border-end">
-                                                        <div class="time-label text-secondary">Alvo</div>
-                                                        <div class="time-value text-danger alvo-time">{{ p.alvo_3.tropo or '--:--' }}</div>
-                                                    </div>
-                                                    <div class="col-6">
-                                                        <div class="time-label {% if p.exec_trop_3 %}text-success{% else %}text-secondary{% endif %}">Real.</div>
-                                                        <div class="time-value {% if p.exec_trop_3 %}text-success{% else %}text-secondary opacity-50{% endif %} realizado-time">{{ p.exec_trop_3 or '--:--' }}</div>
-                                                    </div>
+                                                <div class="p-1 text-center d-flex flex-column justify-content-center flex-grow-1">
+                                                    <div class="time-label text-secondary">Alvo: <strong class="text-danger alvo-time">{{ p.alvo_3.tropo or '--:--' }}</strong></div>
+                                                    <div class="time-value {% if p.exec_trop_3 %}text-success{% else %}text-secondary opacity-25{% endif %} realizado-time">{{ p.exec_trop_3 or '--:--' }}</div>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
                                 </td>
-                                {% else %}
-                                <td class="p-2 align-top border-start bg-body-secondary text-center" style="opacity: 0.4;">
-                                    <div class="mt-5"><i class="bi bi-slash-circle fs-2 text-secondary"></i><br>Não se aplica</div>
-                                </td>
-                                {% endif %}
+                                
                             </tr>
+                            
+                            {% endif %}
+                            
                             {% endfor %}
                         </tbody>
                     </table>
@@ -376,29 +304,39 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
+// --- ATUALIZAÇÃO SILENCIOSA (BACKGROUND) ---
+function buscarAtualizacoesServidor() {
+    fetch(window.location.href)
+        .then(response => response.text())
+        .then(html => {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const novaTabela = doc.getElementById('tabela-pacientes');
+            if (novaTabela) {
+                document.getElementById('tabela-pacientes').innerHTML = novaTabela.innerHTML;
+                aplicarLGPD();
+                atualizarUXPainel();
+            }
+        })
+        .catch(err => console.error('Erro ao atualizar TV:', err));
+}
+
 // --- FUNÇÃO DE AUTO ZOOM PARA A TV ---
 function ajustarZoomTV() {
     const tabela = document.getElementById('tabela-principal');
     const container = document.getElementById('tv-container');
     
-    // 1. Resetar o transform para conseguirmos medir o tamanho original real
     tabela.style.transform = 'none';
     tabela.style.width = '100%';
     
-    // 2. Medir a altura disponível na TV vs a altura que a tabela ocupa
     const alturaContainer = container.clientHeight;
     const alturaTabela = tabela.offsetHeight;
     
-    // 3. Se a tabela for maior que a tela, nós esmagamos (zoom out) ela via CSS
     if (alturaTabela > alturaContainer) {
         const proporcao = alturaContainer / alturaTabela;
-        // Limite mínimo de 40% do tamanho para não ficar ilegível
         const escala = Math.max(proporcao, 0.4); 
-        
         tabela.style.transformOrigin = 'top left';
         tabela.style.transform = `scale(${escala})`;
-        
-        // Alargar a tabela para ela não ficar exprimida no canto esquerdo por causa da escala
         tabela.style.width = `${100 / escala}%`;
     }
 }
@@ -421,7 +359,7 @@ function aplicarLGPD() {
 
 // --- CONTROLE DO MODO NOTURNO ---
 function initTheme() {
-    const savedTheme = localStorage.getItem('theme') || 'light';
+    const savedTheme = localStorage.getItem('theme') || 'dark'; // TV fica melhor no Dark por padrão
     document.documentElement.setAttribute('data-bs-theme', savedTheme);
     atualizarIconeTema(savedTheme);
 }
@@ -544,10 +482,10 @@ function atualizarUXPainel() {
     });
 
     reordenarPacientes();
-    ajustarZoomTV(); // <<< Chamada do Auto-Zoom após a tabela ser montada e ordenada
+    ajustarZoomTV(); 
 }
 
-// Reproduz um bip sonoro suave se detectar algum card piscando (novo atraso)
+// Reproduz um bip sonoro
 let tinhaAtrasoAnterior = false;
 function verificarAlertaSonoro() {
     const temAtrasoAgora = document.querySelector('.atrasado') !== null;
@@ -561,22 +499,24 @@ function verificarAlertaSonoro() {
         oscilador.start();
         oscilador.stop(contextoAudio.currentTime + 0.15); 
     }
-    
     tinhaAtrasoAnterior = temAtrasoAgora;
 }
 
-// Ao abrir a página pela primeira vez:
-window.addEventListener('resize', ajustarZoomTV); // Refaz o cálculo se a TV mudar de tamanho
+window.addEventListener('resize', ajustarZoomTV); 
 
 document.addEventListener("DOMContentLoaded", () => {
     initTheme(); 
     aplicarLGPD();
     atualizarUXPainel(); 
     
+    // Matemática da tela a cada 10s
     setInterval(() => {
         atualizarUXPainel();
         verificarAlertaSonoro();
     }, 10000); 
+
+    // Busca novos dados do banco a cada 30 segundos (Silencioso)
+    setInterval(buscarAtualizacoesServidor, 30000);
 });
 </script>
 </body>
