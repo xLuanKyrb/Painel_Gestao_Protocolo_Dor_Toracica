@@ -122,34 +122,45 @@
         <div class="filter-section shadow-sm no-print">
             <div class="row g-3">
                 <div class="col-md-3">
-                    <label class="small fw-bold mb-1 text-muted">PACIENTE OU ATENDIMENTO</label>
+                    <label class="small fw-bold mb-1 text-muted">PACIENTE OU ATEND.</label>
                     <div class="input-group input-group-sm">
                         <span class="input-group-text bg-body border-secondary"><i class="bi bi-search"></i></span>
-                        <input type="text" id="filtroNome" class="form-control border-secondary" onkeyup="filtrarTabela()" placeholder="Buscar nome...">
+                        <input type="text" id="filtroNome" class="form-control border-secondary" placeholder="Buscar nome...">
                     </div>
                 </div>
-                <div class="col-md-2">
-                    <label class="small fw-bold mb-1 text-muted">DATA DE NASCIMENTO</label>
-                    <input type="date" id="filtroData" class="form-control form-control-sm border-secondary" onchange="filtrarTabela()">
-                </div>
+                
                 <div class="col-md-3">
-                    <label class="small fw-bold mb-1 text-muted">DESFECHO (ALTA/ÓBITO/TRANSF)</label>
+                    <label class="small fw-bold mb-1 text-muted">PERÍODO DO ATENDIMENTO</label>
+                    <div class="input-group input-group-sm">
+                        <input type="date" id="filtroDataInicio" class="form-control border-secondary" title="Data Inicial">
+                        <span class="input-group-text bg-body border-secondary text-muted px-2">até</span>
+                        <input type="date" id="filtroDataFim" class="form-control border-secondary" title="Data Final">
+                    </div>
+                </div>
+
+                <div class="col-md-2">
+                    <label class="small fw-bold mb-1 text-muted">DESFECHO (DESTINO)</label>
                     <div class="input-group input-group-sm">
                         <span class="input-group-text bg-body border-secondary"><i class="bi bi-door-open"></i></span>
-                        <input type="text" id="filtroDesfecho" class="form-control border-secondary" onkeyup="filtrarTabela()" placeholder="Filtrar por destino...">
+                        <input type="text" id="filtroDesfecho" class="form-control border-secondary" placeholder="Ex: Óbito, Alta...">
                     </div>
                 </div>
+                
                 <div class="col-md-2">
-                    <label class="small fw-bold mb-1 text-muted">STATUS NO PROTOCOLO</label>
-                    <select id="filtroStatus" class="form-select form-select-sm border-secondary" onchange="filtrarTabela()">
+                    <label class="small fw-bold mb-1 text-muted">STATUS DO PAINEL</label>
+                    <select id="filtroStatus" class="form-select form-select-sm border-secondary">
                         <option value="">Todos os Status</option>
                         <option value="Ativo">Ativos (Em Andamento)</option>
                         <option value="Arquivado">Arquivados (Com Desfecho)</option>
                     </select>
                 </div>
-                <div class="col-md-2 d-flex align-items-end">
-                    <button class="btn btn-outline-danger btn-sm w-100 fw-bold shadow-sm" onclick="limparFiltros()">
-                        <i class="bi bi-x-circle me-1"></i> LIMPAR
+                
+                <div class="col-md-2 d-flex align-items-end gap-2">
+                    <button class="btn btn-outline-danger btn-sm fw-bold shadow-sm px-2" onclick="limparFiltros()" title="Limpar Filtros">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                    <button class="btn btn-primary btn-sm w-100 fw-bold shadow-sm" onclick="filtrarTabela()">
+                        <i class="bi bi-search me-1"></i> BUSCAR
                     </button>
                 </div>
             </div>
@@ -198,7 +209,9 @@
                     </thead>
                     <tbody id="corpoTabela" class="table-text-small text-center">
                         {% for p in pacientes %}
-                        <tr class="linha-paciente">
+                        
+                        <tr class="linha-paciente" data-data-registro="{{ p.data_registro or '' }}">
+                            
                             <td class="sticky-col sticky-col-1 no-print align-middle">
                                 <a href="/imprimir_resumo/{{ p.id }}" target="_blank" class="btn btn-sm btn-outline-danger border-0 w-100" title="Imprimir Prontuário">
                                     <i class="bi bi-filetype-pdf fs-5"></i>
@@ -207,6 +220,7 @@
                             <td class="text-start sticky-col sticky-col-2 align-middle">
                                 <div class="fw-bold text-uppercase" style="font-size: 0.85rem;">{{ p.nome }}</div>
                                 <div class="text-secondary" style="font-size: 0.7rem;"><i class="bi bi-hash"></i> Atend: {{ p.atendimento }}</div>
+                                <div class="text-muted mt-1" style="font-size: 0.7rem;"><i class="bi bi-calendar3"></i> Registrado em: {{ p.data_registro or 'N/A' }}</div>
                             </td>
                             
                             <td class="align-middle">
@@ -273,12 +287,10 @@
             
             let rotasCount = { 'VERMELHA': 0, 'AMARELA': 0, 'NORMAL': 0 };
 
-            // 1. Processar Células de Métrica (Compara Executado com o Alvo)
             document.querySelectorAll('.cell-metric').forEach(td => {
                 let exec = td.innerText.trim();
                 let alvo = td.getAttribute('data-alvo');
                 
-                // Se a célula pertence ao ECG da 1ª Rota, atualizamos as métricas do gráfico
                 let isEcg1 = td.classList.contains('ecg-1');
 
                 if (exec === '-' || exec === '') {
@@ -290,34 +302,29 @@
                     let minAlvo = parseInt(alvo.split(':')[0]) * 60 + parseInt(alvo.split(':')[1]);
                     let minExec = parseInt(exec.split(':')[0]) * 60 + parseInt(exec.split(':')[1]);
                     
-                    // Tratamento virada de meia noite
                     let diff = minExec - minAlvo;
                     if(diff < -1000) diff += 1440;
                     if(diff > 1000) diff -= 1440;
                     
                     if(diff <= 0) {
-                        // Injeta o texto pra o Excel pegar automaticamente
                         td.innerHTML = `${exec} <span class="badge bg-success bg-opacity-25 text-success border border-success ms-1" style="font-size: 0.6rem;">No Prazo</span>`;
                         if (isEcg1) noPrazoECG1++;
                     } else {
-                        // Injeta texto de atrasado
                         td.innerHTML = `${exec} <span class="badge bg-danger bg-opacity-25 text-danger border border-danger ms-1" style="font-size: 0.6rem;">Atrasado</span>`;
                         if (isEcg1) atrasadoECG1++;
                     }
                 }
             });
 
-            // 2. Processar contagem de Rotas
             document.querySelectorAll('.col-rota').forEach(td => {
                 let r = td.innerText.trim();
                 if (rotasCount[r] !== undefined) rotasCount[r]++;
             });
 
-            // Renderizar Gráficos Chart.js
             renderizarGraficos(noPrazoECG1, atrasadoECG1, pendenteECG1, rotasCount);
         }
 
-        let chartSLA, chartRota; // Variáveis globais para destruir e recriar se necessário
+        let chartSLA, chartRota; 
 
         function renderizarGraficos(noPrazo, atrasado, pendente, rotasCount) {
             const ctxSLA = document.getElementById('graficoSLA').getContext('2d');
@@ -326,7 +333,6 @@
             if(chartSLA) chartSLA.destroy();
             if(chartRota) chartRota.destroy();
 
-            // GRÁFICO 1: SLA DO ECG
             chartSLA = new Chart(ctxSLA, {
                 type: 'doughnut',
                 data: {
@@ -344,7 +350,6 @@
                 }
             });
 
-            // GRÁFICO 2: Distribuição de Rotas
             chartRota = new Chart(ctxRota, {
                 type: 'pie',
                 data: {
@@ -378,7 +383,6 @@
             localStorage.setItem('theme', newTheme);
             atualizarIconeTema(newTheme);
             
-            // Re-renderiza o gráfico para adaptar fonte se necessário (opcional)
             Chart.defaults.color = newTheme === 'dark' ? '#adb5bd' : '#6c757d';
             calcularSLAeGraficos(); 
         }
@@ -394,18 +398,17 @@
             }
         }
 
+        // --- LÓGICA DE FILTRO POR DATA INICIAL E FINAL COM BOTÃO BUSCAR --- //
         function filtrarTabela() {
             const inputNome = document.getElementById("filtroNome").value.toUpperCase();
-            const inputData = document.getElementById("filtroData").value;
+            const inputDataInicio = document.getElementById("filtroDataInicio").value; 
+            const inputDataFim = document.getElementById("filtroDataFim").value;       
             const inputDesfecho = document.getElementById("filtroDesfecho").value.toUpperCase();
             const inputStatus = document.getElementById("filtroStatus").value;
             const trs = document.getElementsByClassName("linha-paciente");
 
-            let dataFormatada = "";
-            if (inputData) {
-                const [ano, mes, dia] = inputData.split('-');
-                dataFormatada = `${dia}/${mes}/${ano}`;
-            }
+            const dataInicioMs = inputDataInicio ? new Date(inputDataInicio + "T00:00:00").getTime() : null;
+            const dataFimMs = inputDataFim ? new Date(inputDataFim + "T23:59:59").getTime() : null;
 
             let visiveis = 0;
 
@@ -413,10 +416,22 @@
                 const txtNome = tr.cells[1].textContent.toUpperCase(); 
                 const txtStatus = tr.cells[2].innerText.trim(); 
                 const txtDesfecho = tr.cells[3].textContent.toUpperCase(); 
-                const txtDataNasc = tr.cells[4].textContent.trim(); 
                 
+                const dataRegistroStr = tr.getAttribute('data-data-registro'); 
+                let matchData = true;
+
+                if (dataRegistroStr && dataRegistroStr !== "None") {
+                    const dataRegistroMs = new Date(dataRegistroStr + "T12:00:00").getTime(); 
+                    
+                    if (dataInicioMs && dataRegistroMs < dataInicioMs) {
+                        matchData = false; 
+                    }
+                    if (dataFimMs && dataRegistroMs > dataFimMs) {
+                        matchData = false; 
+                    }
+                }
+
                 const matchNome = inputNome === "" || txtNome.includes(inputNome);
-                const matchData = inputData === "" || txtDataNasc === dataFormatada;
                 const matchDesfecho = inputDesfecho === "" || txtDesfecho.includes(inputDesfecho);
                 const matchStatus = inputStatus === "" || txtStatus === inputStatus;
 
@@ -443,7 +458,8 @@
 
         function limparFiltros() {
             document.getElementById("filtroNome").value = "";
-            document.getElementById("filtroData").value = "";
+            document.getElementById("filtroDataInicio").value = "";
+            document.getElementById("filtroDataFim").value = "";
             document.getElementById("filtroDesfecho").value = "";
             document.getElementById("filtroStatus").value = "";
             filtrarTabela();
@@ -453,7 +469,6 @@
             const table = document.getElementById("tabela-historico");
             const cloneTable = table.cloneNode(true);
             
-            // Remover coluna do ícone PDF
             for (let i = 0; i < cloneTable.rows.length; i++) {
                 if(cloneTable.rows[i].cells.length > 0) {
                     cloneTable.rows[i].deleteCell(0);
@@ -467,8 +482,8 @@
 
         document.addEventListener("DOMContentLoaded", () => {
             initTheme();
-            calcularSLAeGraficos(); // Executa o cálculo de tempo e gera os gráficos
-            filtrarTabela();
+            calcularSLAeGraficos(); 
+            filtrarTabela(); // Roda uma vez no início para contar o total de pacientes
         });
     </script>
 </body>

@@ -6,9 +6,9 @@ from waitress import serve
 import os     
 from apscheduler.schedulers.background import BackgroundScheduler
 
-
 app = Flask(__name__)
 
+# Chave de segurança obrigatória para as mensagens (flash) aparecerem na tela
 app.secret_key = 'upa_ecg_chave_super_secreta'
 
 # ==========================================
@@ -46,6 +46,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS pacientes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             nome TEXT, nascimento TEXT, atendimento TEXT, setor TEXT,
+            data_registro TEXT, 
             
             presc_ecg_1 TEXT, prescritor_ecg_1 TEXT,
             exec_ecg_1 TEXT, executor_ecg_1 TEXT,
@@ -83,11 +84,16 @@ def init_db():
         )
     ''')
     
-    # Patch de segurança para adicionar o setor no banco caso ele já exista
+    # Patches de segurança para adicionar colunas novas sem apagar o banco existente
     try:
         c.execute("ALTER TABLE pacientes ADD COLUMN setor TEXT")
     except sqlite3.OperationalError:
-        pass # Se a coluna já existir, ele segue a vida
+        pass 
+        
+    try:
+        c.execute("ALTER TABLE pacientes ADD COLUMN data_registro TEXT")
+    except sqlite3.OperationalError:
+        pass
 
     c.execute('''
         CREATE TABLE IF NOT EXISTS logs_auditoria (
@@ -248,16 +254,19 @@ def processar_lista_pacientes(rows):
     return pacientes
 
 # ==========================================
-# 5. SALVAR/ATUALIZAR PACIENTE, MARCAR EXECUÇÃO, REGISTRAR SAÍDA, IMPRIMIR RESUMO E REMOVER
+# 5. ROTAS DE ESCRITA (COM AUDITORIA E TRAVA)
 # ==========================================
-
 @app.route('/salvar', methods=['POST'])
 def salvar():
     id_paciente = request.form.get('id')
     nome_pac = request.form['nome'].strip().upper()
-    numero_atendimento = request.form['atendimento'].strip() 
+    numero_atendimento = request.form['atendimento'].strip()
     
-    dados = (
+    # Captura a data de hoje para o filtro do histórico funcionar perfeitamente
+    hoje = datetime.now().strftime("%Y-%m-%d")
+    
+    # Tupla separada para usar no UPDATE (sem a data de registro para não sobrescrever o dia que ele entrou)
+    dados_update = (
         nome_pac, request.form['nascimento'], numero_atendimento, request.form.get('setor'),
         request.form.get('presc_ecg_1'), request.form.get('prescritor_ecg_1'),
         request.form.get('presc_ecg_2'), request.form.get('prescritor_ecg_2'),
@@ -274,23 +283,33 @@ def salvar():
                   nome=?, nascimento=?, atendimento=?, setor=?,
                   presc_ecg_1=?, prescritor_ecg_1=?, presc_ecg_2=?, prescritor_ecg_2=?, 
                   presc_ecg_3=?, prescritor_ecg_3=?, presc_trop_1=?, presc_trop_2=?, presc_trop_3=?, 
-                  cor_paciente=?, avaliacao=? WHERE id=?""", dados + (id_paciente,))
+                  cor_paciente=?, avaliacao=? WHERE id=?""", dados_update + (id_paciente,))
         conn.commit()
         registrar_log(id_paciente, "EDIÇÃO DE CADASTRO/TRIAGEM", "RECEPÇÃO/ENFERMAGEM")
         
         flash(f"✅ Cadastro de {nome_pac.split(' ')[0]} atualizado!", "success")
-        
     else:
+        # TRAVA CONTRA DUPLICAÇÃO
         existente = c.execute("SELECT id FROM pacientes WHERE atendimento = ? AND ativo = 1", (numero_atendimento,)).fetchone()
         
         if existente:
-            flash(f"⚠️ Atenção: O atendimento {numero_atendimento} já está ativo no painel! Atualize o card existente.", "danger")
+            flash(f"⚠️ Atenção: O atendimento {numero_atendimento} já está ativo no painel! Atualize o card existente na tela.", "danger")
         else:
+            # Tupla completa para o INSERT (Incluindo a data de hoje na 5ª posição)
+            dados_insert = (
+                nome_pac, request.form['nascimento'], numero_atendimento, request.form.get('setor'), hoje,
+                request.form.get('presc_ecg_1'), request.form.get('prescritor_ecg_1'),
+                request.form.get('presc_ecg_2'), request.form.get('prescritor_ecg_2'),
+                request.form.get('presc_ecg_3'), request.form.get('prescritor_ecg_3'),
+                request.form.get('presc_trop_1'), request.form.get('presc_trop_2'), request.form.get('presc_trop_3'),
+                request.form.get('cor_paciente'), request.form.get('avaliacao')
+            )
+            
             c.execute("""INSERT INTO pacientes (
-                      nome, nascimento, atendimento, setor, presc_ecg_1, prescritor_ecg_1, 
-                      presc_ecg_2, prescritor_ecg_2, presc_ecg_3, prescritor_ecg_3, 
+                      nome, nascimento, atendimento, setor, data_registro, 
+                      presc_ecg_1, prescritor_ecg_1, presc_ecg_2, prescritor_ecg_2, presc_ecg_3, prescritor_ecg_3, 
                       presc_trop_1, presc_trop_2, presc_trop_3, cor_paciente, avaliacao
-                      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", dados)
+                      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", dados_insert)
             conn.commit()
             novo_id = c.lastrowid
             registrar_log(novo_id, f"ENTRADA NO PROTOCOLO - {request.form.get('cor_paciente').upper()}", "RECEPÇÃO/ENFERMAGEM")
