@@ -2,7 +2,6 @@
 <html lang="pt-br" data-bs-theme="light">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="refresh" content="60">
     <title>Painel ECG - UPA</title>
     <link rel="icon" href="/templates/eletro-icone.png" type="image/png">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -1139,6 +1138,47 @@ function atualizarUXPainel() {
 
     reordenarPacientes();
 }
+// --- ATUALIZAÇÃO SILENCIOSA (BACKGROUND) ---
+function buscarAtualizacoesServidor() {
+    // Busca a página atual novamente em background
+    fetch(window.location.href)
+        .then(response => response.text())
+        .then(html => {
+            // Transforma o texto recebido em um documento HTML virtual
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+
+            // Recorta a nova tabela de pacientes do HTML virtual
+            const novaTabela = doc.getElementById('tabela-pacientes');
+
+            // Se encontrou a tabela, substitui apenas ela na tela real
+            if (novaTabela) {
+                document.getElementById('tabela-pacientes').innerHTML = novaTabela.innerHTML;
+                
+                // Roda o auditor novamente para recalcular as cores e progressos
+                atualizarUXPainel();
+            }
+        })
+        .catch(err => console.error('Erro ao atualizar painel em background:', err));
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    initTheme(); 
+    atualizarUXPainel(); 
+    
+    // Atualiza a matemática dos tempos na tela a cada 10 segundos
+    setInterval(atualizarUXPainel, 10000); 
+    
+    // Busca novos pacientes/exames no servidor a cada 60 segundos (SEM recarregar a tela inteira)
+    setInterval(buscarAtualizacoesServidor, 60000); 
+
+    // Abre o tutorial apenas na 1ª vez
+    if (!localStorage.getItem('tutorialAberto')) {
+        const modalTutorial = new bootstrap.Modal(document.getElementById('modalTutorial'));
+        modalTutorial.show();
+        localStorage.setItem('tutorialAberto', 'sim');
+    }
+});
 </script>
 </body>
 </html>
