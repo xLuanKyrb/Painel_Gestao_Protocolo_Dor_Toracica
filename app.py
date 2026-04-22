@@ -244,17 +244,15 @@ def processar_lista_pacientes(rows):
         p['alvo_3'] = calcular_prazos(p.get('presc_ecg_3'), p.get('exec_ecg_3'))
     return pacientes
 
-# ==========================================
-# 5. ROTAS DE ESCRITA (COM AUDITORIA)
-# ==========================================
 @app.route('/salvar', methods=['POST'])
 def salvar():
     id_paciente = request.form.get('id')
     nome_pac = request.form['nome'].strip().upper()
+    numero_atendimento = request.form['atendimento'].strip() # Isolamos o número de atendimento
     
     # ADICIONAMOS O SETOR AQUI NA VARIÁVEL 'DADOS' PARA ELE SALVAR
     dados = (
-        nome_pac, request.form['nascimento'], request.form['atendimento'], request.form.get('setor'),
+        nome_pac, request.form['nascimento'], numero_atendimento, request.form.get('setor'),
         request.form.get('presc_ecg_1'), request.form.get('prescritor_ecg_1'),
         request.form.get('presc_ecg_2'), request.form.get('prescritor_ecg_2'),
         request.form.get('presc_ecg_3'), request.form.get('prescritor_ecg_3'),
@@ -275,17 +273,24 @@ def salvar():
         conn.commit()
         registrar_log(id_paciente, "EDIÇÃO DE CADASTRO/TRIAGEM", "RECEPÇÃO/ENFERMAGEM")
     else:
-        # ATUALIZAMOS O INSERT PARA INCLUIR O SETOR E O PONTO DE INTERROGAÇÃO
-        c.execute("""INSERT INTO pacientes (
-                  nome, nascimento, atendimento, setor, presc_ecg_1, prescritor_ecg_1, 
-                  presc_ecg_2, prescritor_ecg_2, presc_ecg_3, prescritor_ecg_3, 
-                  presc_trop_1, presc_trop_2, presc_trop_3, cor_paciente, avaliacao
-                  ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", dados)
-        conn.commit()
-        novo_id = c.lastrowid
-        registrar_log(novo_id, f"ENTRADA NO PROTOCOLO - {request.form.get('cor_paciente').upper()}", "RECEPÇÃO/ENFERMAGEM")
+        # --- TRAVA DE SEGURANÇA CONTRA DUPLICAÇÃO ---
+        existente = c.execute("SELECT id FROM pacientes WHERE atendimento = ? AND ativo = 1", (numero_atendimento,)).fetchone()
+        
+        if existente:
+            print(f"⚠️ BLOQUEADO: Tentativa de duplicar o paciente com atendimento {numero_atendimento}.")
+        else:
+            # Se não encontrou ninguém ativo, faz a inserção normal
+            c.execute("""INSERT INTO pacientes (
+                      nome, nascimento, atendimento, setor, presc_ecg_1, prescritor_ecg_1, 
+                      presc_ecg_2, prescritor_ecg_2, presc_ecg_3, prescritor_ecg_3, 
+                      presc_trop_1, presc_trop_2, presc_trop_3, cor_paciente, avaliacao
+                      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", dados)
+            conn.commit()
+            novo_id = c.lastrowid
+            registrar_log(novo_id, f"ENTRADA NO PROTOCOLO - {request.form.get('cor_paciente').upper()}", "RECEPÇÃO/ENFERMAGEM")
     
     conn.close()
+    
     return redirect(url_for('index'))
 
 @app.route('/marcar_execucao', methods=['POST'])
