@@ -73,6 +73,12 @@
                     <button type="button" class="btn btn-success btn-sm fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#modalTutorial">
                         <i class="bi bi-question-circle-fill me-1"></i> Como Usar?
                     </button>
+                    <button type="button" class="btn btn-info btn-sm fw-bold shadow-sm position-relative text-white" data-bs-toggle="modal" data-bs-target="#modalNovidades" id="btnNovidades">
+                    <i class="bi bi-bell-fill me-1"></i> Atualizações
+                    <span class="position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle" id="badgeNovidades">
+                        <span class="visually-hidden">Novidades</span>
+                    </span>
+                </button>
                     <button class="btn btn-outline-light btn-sm" id="btnDarkMode" onclick="toggleDarkMode()" title="Alternar Modo Noturno">
                         <i class="bi bi-moon-stars-fill"></i>
                     </button>
@@ -804,13 +810,84 @@
   </div>
 </div>
 
+<div class="modal fade" id="modalNovidades" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg">
+      <div class="modal-header bg-info text-white">
+        <h5 class="modal-title fw-bold"><i class="bi bi-stars me-2"></i>O que há de novo? (Versão 1.1)</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body bg-body p-4">
+        
+        <p class="text-muted small mb-4">O Painel de ECG acabou de ser atualizado para deixar o plantão mais rápido e evitar erros. Veja o que mudou:</p>
+
+        <div class="d-flex mb-3">
+            <div class="me-3 text-success"><i class="bi bi-bullseye fs-3"></i></div>
+            <div>
+                <h6 class="fw-bold mb-1">Botões de Lançamento Direto</h6>
+                <p class="small text-muted mb-0">Agora você clica no botão "Lançar" diretamente dentro do quadrado do exame que está vazio. Muito mais rápido e intuitivo!</p>
+            </div>
+        </div>
+
+        <div class="d-flex mb-3">
+            <div class="me-3 text-danger"><i class="bi bi-shield-lock-fill fs-3"></i></div>
+            <div>
+                <h6 class="fw-bold mb-1">Bloqueio de Duplicação</h6>
+                <p class="small text-muted mb-0">O sistema agora impede que a equipe cadastre o mesmo paciente duas vezes por acidente se ele já estiver ativo na tela.</p>
+            </div>
+        </div>
+
+        <div class="d-flex mb-1">
+            <div class="me-3 text-primary"><i class="bi bi-book-half fs-3"></i></div>
+            <div>
+                <h6 class="fw-bold mb-1">Guia Rápido Embutido</h6>
+                <p class="small text-muted mb-0">Esqueceu como anular um raio-X? Clique no botão verde "Como Usar?" lá em cima para abrir o manual ilustrado.</p>
+            </div>
+        </div>
+
+      </div>
+      <div class="modal-footer bg-body-tertiary border-top-0 d-flex justify-content-center">
+        <button type="button" class="btn btn-info text-white fw-bold px-4" data-bs-dismiss="modal" onclick="marcarComoLido()">Entendi, vamos trabalhar!</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
+// --- CONTROLE DE VERSÃO E AVISOS ---
+// Quando você atualizar o sistema de novo, mude '1.1' para '1.2' aqui embaixo!
+const VERSAO_ATUAL_SISTEMA = '1.1'; 
+
 document.addEventListener("DOMContentLoaded", () => {
     initTheme(); 
     atualizarUXPainel(); 
     setInterval(atualizarUXPainel, 150000); 
+
+    // Verifica qual versão o computador da pessoa viu por último
+    const versaoVista = localStorage.getItem('versaoPainel');
+
+    // Se ele nunca viu (ou a versão mudou), mostra o modal de novidades
+    if (versaoVista !== VERSAO_ATUAL_SISTEMA) {
+        const modalNovidades = new bootstrap.Modal(document.getElementById('modalNovidades'));
+        modalNovidades.show();
+    } else {
+        // Se ele já viu essa versão, esconde a bolinha vermelha do menu
+        const badge = document.getElementById('badgeNovidades');
+        if (badge) badge.style.display = 'none';
+    }
+});
+
+function marcarComoLido() {
+    localStorage.setItem('versaoPainel', VERSAO_ATUAL_SISTEMA);
+    const badge = document.getElementById('badgeNovidades');
+    if (badge) badge.style.display = 'none'; // Some com a bolinha vermelha na hora
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    initTheme(); 
+    atualizarUXPainel(); 
 
     // Abre o tutorial apenas na 1ª vez
     if (!localStorage.getItem('tutorialAberto')) {
