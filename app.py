@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, flash
 import sqlite3
 from datetime import datetime, timedelta
 import shutil 
@@ -6,7 +6,10 @@ from waitress import serve
 import os     
 from apscheduler.schedulers.background import BackgroundScheduler
 
+
 app = Flask(__name__)
+
+app.secret_key = 'upa_ecg_chave_super_secreta'
 
 # ==========================================
 # 1. ROTINA DE BACKUP AUTOMÁTICO
@@ -244,13 +247,16 @@ def processar_lista_pacientes(rows):
         p['alvo_3'] = calcular_prazos(p.get('presc_ecg_3'), p.get('exec_ecg_3'))
     return pacientes
 
+# ==========================================
+# 5. SALVAR/ATUALIZAR PACIENTE, MARCAR EXECUÇÃO, REGISTRAR SAÍDA, IMPRIMIR RESUMO E REMOVER
+# ==========================================
+
 @app.route('/salvar', methods=['POST'])
 def salvar():
     id_paciente = request.form.get('id')
     nome_pac = request.form['nome'].strip().upper()
-    numero_atendimento = request.form['atendimento'].strip() # Isolamos o número de atendimento
+    numero_atendimento = request.form['atendimento'].strip() 
     
-    # ADICIONAMOS O SETOR AQUI NA VARIÁVEL 'DADOS' PARA ELE SALVAR
     dados = (
         nome_pac, request.form['nascimento'], numero_atendimento, request.form.get('setor'),
         request.form.get('presc_ecg_1'), request.form.get('prescritor_ecg_1'),
@@ -264,7 +270,6 @@ def salvar():
     c = conn.cursor()
 
     if id_paciente and id_paciente != "":
-        # ATUALIZAMOS O UPDATE PARA INCLUIR O SETOR
         c.execute("""UPDATE pacientes SET 
                   nome=?, nascimento=?, atendimento=?, setor=?,
                   presc_ecg_1=?, prescritor_ecg_1=?, presc_ecg_2=?, prescritor_ecg_2=?, 
@@ -272,14 +277,15 @@ def salvar():
                   cor_paciente=?, avaliacao=? WHERE id=?""", dados + (id_paciente,))
         conn.commit()
         registrar_log(id_paciente, "EDIÇÃO DE CADASTRO/TRIAGEM", "RECEPÇÃO/ENFERMAGEM")
+        
+        flash(f"✅ Cadastro de {nome_pac.split(' ')[0]} atualizado!", "success")
+        
     else:
-        # --- TRAVA DE SEGURANÇA CONTRA DUPLICAÇÃO ---
         existente = c.execute("SELECT id FROM pacientes WHERE atendimento = ? AND ativo = 1", (numero_atendimento,)).fetchone()
         
         if existente:
-            print(f"⚠️ BLOQUEADO: Tentativa de duplicar o paciente com atendimento {numero_atendimento}.")
+            flash(f"⚠️ Atenção: O atendimento {numero_atendimento} já está ativo no painel! Atualize o card existente.", "danger")
         else:
-            # Se não encontrou ninguém ativo, faz a inserção normal
             c.execute("""INSERT INTO pacientes (
                       nome, nascimento, atendimento, setor, presc_ecg_1, prescritor_ecg_1, 
                       presc_ecg_2, prescritor_ecg_2, presc_ecg_3, prescritor_ecg_3, 
@@ -288,9 +294,10 @@ def salvar():
             conn.commit()
             novo_id = c.lastrowid
             registrar_log(novo_id, f"ENTRADA NO PROTOCOLO - {request.form.get('cor_paciente').upper()}", "RECEPÇÃO/ENFERMAGEM")
+            
+            flash(f"✅ Paciente {nome_pac.split(' ')[0]} adicionado ao protocolo!", "success")
     
     conn.close()
-    
     return redirect(url_for('index'))
 
 @app.route('/marcar_execucao', methods=['POST'])
