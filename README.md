@@ -40,7 +40,10 @@ O sistema foi focada em resistência e baixa necessidade de manutenção de infr
 
 ### Passo a Passo
 
-1. **Clone o repositório ou extraia os arquivos:**
+**Clone o repositório ou extraia os arquivos:**
    ```bash
    git clone https://github.com/xLuanKyrb/painel_dor_toracica.git
    cd ecg
+   pip install Flask waitress apscheduler
+
+**Existe 3 dependências do python para a execução do projeto: Flask, Waitress e Apscheduler**
