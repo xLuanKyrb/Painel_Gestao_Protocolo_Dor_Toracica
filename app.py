@@ -8,12 +8,8 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 app = Flask(__name__)
 
-# Chave de segurança obrigatória para as mensagens (flash) aparecerem na tela
 app.secret_key = 'upa_ecg_chave_super_secreta'
 
-# ==========================================
-# 1. ROTINA DE BACKUP AUTOMÁTICO
-# ==========================================
 def fazer_backup_diario():
     """Cria uma cópia do banco de dados todo fim de dia"""
     nome_banco = 'upa_eletros.db'
@@ -31,13 +27,10 @@ def fazer_backup_diario():
 
     try:
         shutil.copy2(nome_banco, caminho_backup)
-        print(f"✅ [BACKUP SUCESSO] Backup diário salvo: {caminho_backup}")
+        print(f"[BACKUP SUCESSO] Backup diário salvo: {caminho_backup}")
     except Exception as e:
-        print(f"❌ [ERRO BACKUP] Falha ao salvar banco de dados: {e}")
+        print(f"[ERRO BACKUP] Falha ao salvar banco de dados: {e}")
 
-# ==========================================
-# 2. BANCO DE DADOS & AUDITORIA
-# ==========================================
 def init_db():
     conn = sqlite3.connect('upa_eletros.db')
     c = conn.cursor()
@@ -84,16 +77,11 @@ def init_db():
         )
     ''')
     
-    # Patches de segurança para adicionar colunas novas sem apagar o banco existente
-    try:
-        c.execute("ALTER TABLE pacientes ADD COLUMN setor TEXT")
-    except sqlite3.OperationalError:
-        pass 
+    try: c.execute("ALTER TABLE pacientes ADD COLUMN setor TEXT")
+    except sqlite3.OperationalError: pass 
         
-    try:
-        c.execute("ALTER TABLE pacientes ADD COLUMN data_registro TEXT")
-    except sqlite3.OperationalError:
-        pass
+    try: c.execute("ALTER TABLE pacientes ADD COLUMN data_registro TEXT")
+    except sqlite3.OperationalError: pass
 
     c.execute('''
         CREATE TABLE IF NOT EXISTS logs_auditoria (
@@ -117,9 +105,6 @@ def registrar_log(paciente_id, acao, profissional="SISTEMA"):
     conn.commit()
     conn.close()
 
-# ==========================================
-# 3. REGRAS DE NEGÓCIO E TEMPO (SLA)
-# ==========================================
 def calcular_prazos(hora_prescricao, hora_exec_ecg=None):
     prazos = {'ecg': None, 'tropo': None, 'med': None, 'rx': None, 'aval': None}
     
@@ -194,9 +179,27 @@ def calcular_progresso_ecg(exec_hora):
     except:
         return None
 
-# ==========================================
-# 4. ROTAS DA APLICAÇÃO (APIs)
-# ==========================================
+def calcular_progresso_geral(p):
+    """Calcula os dados para o gráfico circular da 1ª Rota no Jinja/HTML"""
+    passos_totais = 0
+    passos_concluidos = 0
+
+    campos_verificacao = ['exec_ecg_1']
+    if p.get('cor_paciente') != 'normal':
+        campos_verificacao.extend(['exec_trop_1', 'exec_med_1', 'exec_rx_1', 'avalia_rota_1'])
+    
+    for campo in campos_verificacao:
+        passos_totais += 1
+        valor = p.get(campo)
+        if valor and str(valor).strip() != "" and valor != 'N/A':
+            passos_concluidos += 1
+            
+    if passos_totais == 0:
+        return 0, 0, 0
+    
+    pct = (passos_concluidos / passos_totais) * 100
+    return passos_concluidos, passos_totais, pct
+
 @app.route('/')
 def index():
     busca = request.args.get('q', '').strip().upper()
@@ -241,7 +244,7 @@ def tela():
 def processar_lista_pacientes(rows):
     pacientes = [dict(p) for p in rows]
     for p in pacientes:
-        p['cor_classe'] = calcular_urgencia(p['presc_ecg_1'], p['exec_ecg_1'])
+        p['cor_classe'] = calcular_urgencia(p.get('presc_ecg_1'), p.get('exec_ecg_1'))
         p['prox_ecg_1'] = calcular_proximo_ecg(p.get('exec_ecg_1'))
         p['prox_ecg_2'] = calcular_proximo_ecg(p.get('exec_ecg_2'))
         p['prox_ecg_3'] = calcular_proximo_ecg(p.get('exec_ecg_3'))
@@ -251,21 +254,22 @@ def processar_lista_pacientes(rows):
         p['alvo_1'] = calcular_prazos(p.get('presc_ecg_1'), p.get('exec_ecg_1'))
         p['alvo_2'] = calcular_prazos(p.get('presc_ecg_2'), p.get('exec_ecg_2'))
         p['alvo_3'] = calcular_prazos(p.get('presc_ecg_3'), p.get('exec_ecg_3'))
+        
+        concluidos, totais, pct = calcular_progresso_geral(p)
+        p['passos_concluidos'] = concluidos
+        p['passos_totais'] = totais
+        p['porcentagem_conclusao'] = pct
+        
     return pacientes
 
-# ==========================================
-# 5. ROTAS DE ESCRITA (COM AUDITORIA E TRAVA)
-# ==========================================
 @app.route('/salvar', methods=['POST'])
 def salvar():
     id_paciente = request.form.get('id')
     nome_pac = request.form['nome'].strip().upper()
     numero_atendimento = request.form['atendimento'].strip()
     
-    # Captura a data de hoje para o filtro do histórico funcionar perfeitamente
     hoje = datetime.now().strftime("%Y-%m-%d")
     
-    # Tupla separada para usar no UPDATE (sem a data de registro para não sobrescrever o dia que ele entrou)
     dados_update = (
         nome_pac, request.form['nascimento'], numero_atendimento, request.form.get('setor'),
         request.form.get('presc_ecg_1'), request.form.get('prescritor_ecg_1'),
@@ -287,15 +291,13 @@ def salvar():
         conn.commit()
         registrar_log(id_paciente, "EDIÇÃO DE CADASTRO/TRIAGEM", "RECEPÇÃO/ENFERMAGEM")
         
-        flash(f"✅ Cadastro de {nome_pac.split(' ')[0]} atualizado!", "success")
+        flash(f"Cadastro de {nome_pac.split(' ')[0]} atualizado!", "success")
     else:
-        # TRAVA CONTRA DUPLICAÇÃO
         existente = c.execute("SELECT id FROM pacientes WHERE atendimento = ? AND ativo = 1", (numero_atendimento,)).fetchone()
         
         if existente:
             flash(f"⚠️ Atenção: O atendimento {numero_atendimento} já está ativo no painel! Atualize o card existente na tela.", "danger")
         else:
-            # Tupla completa para o INSERT (Incluindo a data de hoje na 5ª posição)
             dados_insert = (
                 nome_pac, request.form['nascimento'], numero_atendimento, request.form.get('setor'), hoje,
                 request.form.get('presc_ecg_1'), request.form.get('prescritor_ecg_1'),
@@ -330,6 +332,16 @@ def marcar_execucao():
     
     if anular == "sim":
         agora = "N/A"
+        
+    colunas_validas = [
+        'exec_ecg_1', 'exec_rx_1', 'exec_med_1', 'laudo_ecg_1', 'avalia_rota_1', 'vis_crm_1', 'exec_trop_1',
+        'exec_ecg_2', 'exec_rx_2', 'exec_med_2', 'laudo_ecg_2', 'avalia_rota_2', 'vis_crm_2', 'exec_trop_2',
+        'exec_ecg_3', 'exec_rx_3', 'exec_med_3', 'laudo_ecg_3', 'avalia_rota_3', 'vis_crm_3', 'exec_trop_3'
+    ]
+    
+    if coluna_hora not in colunas_validas:
+        flash("❌ Erro de Segurança: Coluna do banco de dados não permitida.", "danger")
+        return redirect(url_for('index'))
     
     if "laudo" in coluna_hora: coluna_prof = coluna_hora.replace('laudo', 'medico')
     elif "exec" in coluna_hora: coluna_prof = coluna_hora.replace('exec', 'executor')
@@ -339,13 +351,15 @@ def marcar_execucao():
 
     conn = sqlite3.connect('upa_eletros.db')
     try:
-        query = f"UPDATE pacientes SET {coluna_hora} = '{agora}', {coluna_prof} = '{profissional}' WHERE id = {id_paciente}"
-        conn.execute(query)
+        query = f"UPDATE pacientes SET {coluna_hora} = ?, {coluna_prof} = ? WHERE id = ?"
+        conn.execute(query, (agora, profissional, id_paciente))
         conn.commit()
+        
         acao_amigavel = f"Registrou {coluna_hora.upper()} ({agora})"
         registrar_log(id_paciente, acao_amigavel, profissional)
     except Exception as e:
-        print(f"Erro no SQL Dinâmico: {e}")
+        print(f"Erro no SQL: {e}")
+        flash(" Falha ao gravar a ação no banco de dados.", "danger")
     finally:
         conn.close()
         
