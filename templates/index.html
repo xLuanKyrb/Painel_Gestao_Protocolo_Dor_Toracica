@@ -6,6 +6,7 @@
     <link rel="icon" href="/templates/eletro-icone.png" type="image/png">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.css"/>
     <style>
         body { transition: background-color 0.3s ease, color 0.3s ease; }
         
@@ -90,7 +91,10 @@
                     <a href="/tela" class="btn btn-primary btn-sm fw-bold">Painel</a>
                     <a href="/" class="btn btn-warning btn-sm fw-bold">Cadastro</a>
                     <button type="button" class="btn btn-success btn-sm fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#modalTutorial">
-                        <i class="bi bi-question-circle-fill me-1"></i> Como Usar?
+                        <i class="bi bi-book-half me-1"></i> Manual
+                    </button>
+                    <button type="button" class="btn btn-outline-light btn-sm fw-bold shadow-sm" onclick="iniciarTutorialGuiado()">
+                        <i class="bi bi-compass-fill me-1"></i> Tour
                     </button>
                     <button type="button" class="btn btn-info btn-sm fw-bold shadow-sm position-relative text-white" data-bs-toggle="modal" data-bs-target="#modalNovidades" id="btnNovidades">
                     <i class="bi bi-bell-fill me-1"></i> Atualizações
@@ -844,7 +848,6 @@
   </div>
 </div>
 
-<!-- Modal Novidades -->
 <div class="modal fade" id="modalNovidades" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content border-0 shadow-lg">
@@ -867,8 +870,8 @@
         <div class="d-flex mb-1">
             <div class="me-3 text-primary"><i class="bi bi-book-half fs-3"></i></div>
             <div>
-                <h6 class="fw-bold mb-1">Guia Rápido Embutido</h6>
-                <p class="small text-muted mb-0">Esqueceu como anular um raio-X? Clique no botão verde "Como Usar?" lá em cima para abrir o manual ilustrado.</p>
+                <h6 class="fw-bold mb-1">Função Tuor</h6>
+                <p class="small text-muted mb-0">A função serve para mostrar qual caminho seguir para realizar o protocolo.</p>
             </div>
         </div>
 
@@ -881,9 +884,49 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-
+<script src="https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.js.iife.js"></script>
 <script>
-// --- CONTROLE DE VERSÃO E AVISOS ---
+
+const driver = window.driver.js.driver;
+
+function iniciarTutorialGuiado() {
+    const driverObj = driver({
+      showProgress: true,
+      nextBtnText: 'Próximo',
+      prevBtnText: 'Voltar',
+      doneBtnText: 'Entendi!',
+      steps: [
+        { 
+          element: '#headerForm', 
+          popover: { 
+            title: '1. Novo Paciente', 
+            description: 'Aqui você cadastra o paciente. Não esqueça de selecionar a Rota correta (Amarela ou Vermelha) para ativar os tempos-alvo do protocolo de dor torácica.', 
+            side: "right", align: 'start' 
+          }
+        },
+        { 
+          element: '.btn-filtro', 
+          popover: { 
+            title: '2. Filtros Rápidos', 
+            description: 'Use esses botões para ver apenas os pacientes que estão com exames atrasados ou em situação de urgência.', 
+            side: "bottom", align: 'center' 
+          }
+        },
+        { 
+          element: '.btn-lancar-direto', 
+          popover: { 
+            title: '3. Lançar Exames', 
+            description: 'Sempre que um ECG ou Medicação for feito, clique neste botão para registrar o horário e quem realizou.', 
+            side: "left", align: 'center' 
+          }
+        }
+      ]
+    });
+    
+    driverObj.drive();
+}
+
+
 const VERSAO_ATUAL_SISTEMA = '1.2'; 
 
 document.addEventListener("DOMContentLoaded", () => {
